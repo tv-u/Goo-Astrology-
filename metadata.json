@@ -1,0 +1,6 @@
+{
+  "name": "GOO ASTROLOGY UNLIMITED FREE",
+  "description": "Enterprise Indian Vedic Astrology platform with Lahiri Sidereal Kundli, 16 Divisional Charts, Ashtakoot Matching, Daily Panchang, Tarot, Numerology, and AI Astrologer.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
