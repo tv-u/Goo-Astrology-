@@ -23,7 +23,7 @@ jobs:
           node-version: "22"
 
       - name: Install dependencies (free-first local check)
-        run: npm install --no-audit --no-fund
+        run: npm ci --no-audit --no-fund
 
       - name: TypeScript strict type check
         run: npm run lint
