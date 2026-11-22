@@ -1,0 +1,42 @@
+name: GitHub-Only Quality, Astrology Verification & Build Check
+
+on:
+  push:
+    branches:
+      - main
+      - "dev/**"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  quality-and-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install dependencies (free-first local check)
+        run: npm install --no-audit --no-fund
+
+      - name: TypeScript strict type check
+        run: npm run lint
+
+      - name: Run full Astrology, India Gazetteer, i18n & Security test suite
+        run: npm test
+
+      - name: Verify schema migrations & security baseline
+        run: |
+          test -f migrations/0001_init.sql
+          test -f migrations/0002_ecosystem.sql
+          grep -q "16127660-ca97-4972-a7d1-97e9620b1271" wrangler.toml
+          ! grep -rn "window\.alert(" src/
+
+      - name: Build production PWA bundle (artifact check only, no deploy)
+        run: npm run build

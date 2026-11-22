@@ -1,51 +1,15 @@
-name: Build, Open-Data QA, Test & Deploy to Cloudflare Pages
+# Disabled during GitHub-Only Development Phase.
+# Manual dispatch only; production Cloudflare Pages deployment is intentionally paused.
+name: Manual Cloudflare Pages Deploy (Paused in GitHub-Only Phase)
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
-  schedule:
-    - cron: '15 2 * * *' # Daily 07:45 IST background ephemeris & dataset check
   workflow_dispatch:
 
 jobs:
-  validate-and-deploy:
+  paused-notice:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-          cache: "npm"
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: TypeScript type check
-        run: npm run lint
-
-      - name: Run Vedic astronomy, sync & 100-feature test suite
-        run: npm test
-
-      - name: Verify Cloudflare D1 migrations SQL syntax
+      - name: GitHub-Only Phase Notice
         run: |
-          test -f migrations/0001_init.sql
-          test -f migrations/0002_ecosystem.sql
-          grep -q "16127660-ca97-4972-a7d1-97e9620b1271" wrangler.toml
-
-      - name: Build production PWA frontend
-        run: npm run build
-
-      - name: Deploy to Cloudflare Pages
-        if: github.ref == 'refs/heads/main' && secrets.CLOUDFLARE_API_TOKEN != ''
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=goo-astrology-unlimited-free
+          echo "Cloudflare Pages deployment is paused during the GitHub-only development phase."
+          echo "Use .github/workflows/quality.yml for CI type-check, test suite, and build checks."

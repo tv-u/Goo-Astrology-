@@ -6,6 +6,7 @@ import {
   type IndianLanguageCode,
   type LocaleDictionary,
 } from '../data/locales';
+import { formatLocalizedDate, formatLocalizedNumber } from '../engine/i18nKnowledge';
 
 export type Language = IndianLanguageCode;
 export type Theme = 'light' | 'dark';
@@ -33,6 +34,9 @@ interface AppContextValue {
   geminiConfigured: boolean;
   rtcConfigured: boolean;
   t: (en: string, hi: string) => string;
+  td: (key: keyof LocaleDictionary) => string;
+  formatNumber: (n: number) => string;
+  formatDate: (d: Date | string) => string;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -94,8 +98,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
-  const t = (en: string, hi: string) => (language === 'hi' || language === 'sa' ? hi : en);
   const locale = LOCALE_STRINGS[language] || LOCALE_STRINGS.en;
+  const t = (en: string, hi: string) => (language === 'hi' || language === 'sa' || language === 'mr' ? hi : en);
+  const td = (key: keyof LocaleDictionary) => locale[key] || LOCALE_STRINGS.en[key];
+  const formatNumber = (n: number) => formatLocalizedNumber(n, language);
+  const formatDate = (d: Date | string) => formatLocalizedDate(d, language);
 
   return (
     <AppContext.Provider
@@ -114,6 +121,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         geminiConfigured,
         rtcConfigured,
         t,
+        td,
+        formatNumber,
+        formatDate,
       }}
     >
       {children}

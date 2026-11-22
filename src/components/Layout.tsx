@@ -165,8 +165,24 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               {locale.workspace}
             </Link>
             <span aria-hidden="true">·</span>
+            <Link to="/india-locations" className="hover:text-[#9A6D12] dark:hover:text-amber-300">
+              {locale.indiaLocations}
+            </Link>
+            <span aria-hidden="true">·</span>
+            <Link to="/academy" className="hover:text-[#9A6D12] dark:hover:text-amber-300">
+              {locale.academy}
+            </Link>
+            <span aria-hidden="true">·</span>
+            <Link to="/report-studio" className="hover:text-[#9A6D12] dark:hover:text-amber-300">
+              {locale.reportStudio}
+            </Link>
+            <span aria-hidden="true">·</span>
+            <Link to="/verification-center" className="hover:text-[#9A6D12] dark:hover:text-amber-300">
+              {locale.verificationCenter}
+            </Link>
+            <span aria-hidden="true">·</span>
             <Link to="/test-registry" className="hover:text-[#9A6D12] dark:hover:text-amber-300">
-              {t('150-Feature QA', '150-फीचर जांच')}
+              {locale.qaRegistry}
             </Link>
           </div>
 
@@ -270,11 +286,12 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
             </h4>
             <ul className="space-y-1.5 text-xs">
               <li><Link to="/workspace" className="hover:text-[#9A6D12]">3D Map &amp; Widget Studio</Link></li>
+              <li><Link to="/india-locations" className="hover:text-[#9A6D12]">India Locations (28+8)</Link></li>
+              <li><Link to="/academy" className="hover:text-[#9A6D12]">Vedic Academy &amp; Glossary</Link></li>
+              <li><Link to="/report-studio" className="hover:text-[#9A6D12]">Report Studio (PDF/HTML/PNG)</Link></li>
+              <li><Link to="/verification-center" className="hover:text-[#9A6D12]">Verification Center</Link></li>
+              <li><Link to="/test-registry" className="hover:text-[#9A6D12]">350-Module QA Registry</Link></li>
               <li><Link to="/data-tools" className="hover:text-[#9A6D12]">Open Data Sync &amp; Bulk CSV</Link></li>
-              <li><Link to="/ai-astrologer" className="hover:text-[#9A6D12]">GOO AI Astrologer</Link></li>
-              <li><Link to="/astrologers" className="hover:text-[#9A6D12]">Astrologers Directory</Link></li>
-              <li><Link to="/test-registry" className="hover:text-[#9A6D12]">150-Feature QA Registry</Link></li>
-              <li><Link to="/tools" className="hover:text-[#9A6D12]">All Tools Directory</Link></li>
               <li><Link to="/admin" className="hover:text-[#9A6D12]">Admin Control Panel</Link></li>
             </ul>
           </div>

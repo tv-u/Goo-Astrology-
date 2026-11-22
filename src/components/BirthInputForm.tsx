@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MapPin, Search } from 'lucide-react';
-import { CITIES_DATASET, searchCities, type CityRecord } from '../data/cities';
+import { CITIES_DATASET, type CityRecord } from '../data/cities';
+import { resolveIndiaLocation } from '../data/indiaLocations';
 import type { AyanamshaMode, BirthInput } from '../engine/ephemeris';
 import { useApp } from '../context/AppContext';
 
@@ -33,7 +34,8 @@ export const BirthInputForm: React.FC<Props> = ({
   const [showAdvancedCoords, setShowAdvancedCoords] = useState(false);
   const [error, setError] = useState('');
 
-  const suggestions = searchCities(cityQuery);
+  const resolution = resolveIndiaLocation(cityQuery);
+  const suggestions = resolution.matches;
 
   const handleSelectCity = (c: CityRecord) => {
     setSelectedCity(c);
@@ -151,6 +153,11 @@ export const BirthInputForm: React.FC<Props> = ({
           </div>
           {showSuggestions && suggestions.length > 0 && (
             <div className="absolute z-30 mt-1 w-full max-h-56 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0D1326] shadow-lg">
+              {(resolution.resolvedByAlias || resolution.ambiguous) && (
+                <div className="px-3.5 py-1.5 text-[11px] bg-amber-500/10 text-amber-700 dark:text-amber-300 border-b border-amber-500/20">
+                  {resolution.notes}
+                </div>
+              )}
               {suggestions.map((c) => (
                 <button
                   key={c.id}

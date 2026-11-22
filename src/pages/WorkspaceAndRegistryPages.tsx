@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import { SeoHead } from '../components/SeoHead';
 import { Cosmic3DMap } from '../components/Cosmic3DMap';
 import { KundliChartSvg } from '../components/KundliChartSvg';
-import { ADVANCED_100_FEATURES } from '../data/featureRegistry';
+import { PLATFORM_350_FEATURES, getRegistrySummary } from '../data/featureRegistry';
 import { NAKSHATRAS, PLANET_DIGNITY_SIGNS, type PlanetId } from '../engine/constants';
 import { calculateKundli } from '../engine/ephemeris';
 import { validateEphemerisEngine } from '../engine/dataTools';
@@ -787,6 +787,7 @@ GET  /api/v1/calculate/eclipses?date=2026-08-15`}
 
 export function TestRegistryPage() {
   const [filterCat, setFilterCat] = useState('All');
+  const [filterStatus, setFilterStatus] = useState('All');
   const [search, setSearch] = useState('');
   const [liveChecks, setLiveChecks] = useState<{
     ephemerisPassed: boolean;
@@ -795,6 +796,8 @@ export function TestRegistryPage() {
     featureFlagsCount: number;
     checkedAt: string;
   } | null>(null);
+
+  const summary = useMemo(() => getRegistrySummary(), []);
 
   const runLiveDiagnostics = async () => {
     const eph = validateEphemerisEngine();
@@ -826,73 +829,104 @@ export function TestRegistryPage() {
     runLiveDiagnostics();
   }, []);
 
-  const categories = ['All', ...Array.from(new Set(ADVANCED_100_FEATURES.map((f) => f.category)))];
-  const filtered = ADVANCED_100_FEATURES.filter(
+  const categories = ['All', ...Array.from(new Set(PLATFORM_350_FEATURES.map((f) => f.category)))];
+  const filtered = PLATFORM_350_FEATURES.filter(
     (f) =>
       (filterCat === 'All' || f.category === filterCat) &&
-      (f.title.toLowerCase().includes(search.toLowerCase()) || f.code.toLowerCase().includes(search.toLowerCase()))
+      (filterStatus === 'All' || f.implementationStatus === filterStatus) &&
+      (f.title.toLowerCase().includes(search.toLowerCase()) ||
+        f.code.toLowerCase().includes(search.toLowerCase()) ||
+        (f.notes || '').toLowerCase().includes(search.toLowerCase()))
   );
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <SeoHead
-        title="100-Feature Enterprise Test & Implementation Registry"
-        description="Transparent engineering registry mapping all 100 advanced Vedic astrology modules + 50 core Turn 1 tools to live routes, engines, and automated tests."
+        title="350-Module Enterprise Test & Implementation Registry (Domains A–Q)"
+        description="Transparent engineering registry mapping all 350 Vedic astrology modules across Core + Domains A–Q to routes, engines, backend files, data dependencies, and automated tests."
       />
 
       <div className="flex flex-wrap items-end justify-between gap-4 border-b border-[#E7DEC8] dark:border-slate-800 pb-5">
         <div>
           <p className="text-xs font-semibold uppercase tracking-widest text-[#9A6D12] dark:text-amber-400">
-            Zero-Mock Engineering Verification Matrix
+            Zero-Mock Honest Engineering Verification Matrix
           </p>
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-[#0D1B3E] dark:text-amber-200 mt-1">
-            100-Feature Implementation &amp; Test Registry
+            350-Module Implementation &amp; Test Registry (Domains A–Q)
           </h1>
           <p className="text-sm text-slate-600 dark:text-slate-300 mt-1">
-            All 100 new enterprise features (plus 50 core platform modules) mapped to their TypeScript engines, routes, and automated verification suite.
+            Every module mapped honestly to frontend, backend, engine logic, and automated verification — blocked or partial external items are explicitly flagged.
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={runLiveDiagnostics}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0D1B3E] text-white text-xs font-semibold cursor-pointer"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-          <span>Run Live Stack Diagnostics</span>
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() =>
+              exportRowsToCsv(
+                'goo-astrology-350-registry.csv',
+                PLATFORM_350_FEATURES.map((f) => ({
+                  Number: f.number,
+                  Code: f.code,
+                  Title: f.title,
+                  Category: f.category,
+                  Route: f.route,
+                  Engine: f.engineModule,
+                  Status: f.implementationStatus,
+                  Notes: f.notes || '',
+                }))
+              )
+            }
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-[#D8CBAF] dark:border-slate-700 text-xs font-semibold cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5" /> Export CSV
+          </button>
+          <button
+            type="button"
+            onClick={runLiveDiagnostics}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#0D1B3E] text-white text-xs font-semibold cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>Run Live Stack Diagnostics</span>
+          </button>
+        </div>
       </div>
 
-      {liveChecks && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-xs tabular-nums">
+      {/* Honest 350-Module Status Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-xs tabular-nums">
+        <div className="p-4 rounded-xl border border-[#C59326]/40 bg-[#F7F2E4] dark:bg-[#0D1326]">
+          <p className="text-slate-500">Total Registered Modules</p>
+          <p className="font-bold text-xl mt-1 text-[#0D1B3E] dark:text-amber-200">{summary.totalModules}</p>
+        </div>
+        <div className="p-4 rounded-xl border border-emerald-500/30 bg-white dark:bg-[#0D1326]">
+          <p className="text-slate-500">WORKING</p>
+          <p className="font-bold text-xl mt-1 text-emerald-700 dark:text-emerald-400">{summary.counts.WORKING}</p>
+        </div>
+        <div className="p-4 rounded-xl border border-amber-500/30 bg-white dark:bg-[#0D1326]">
+          <p className="text-slate-500">PARTIALLY_IMPLEMENTED</p>
+          <p className="font-bold text-xl mt-1 text-amber-700 dark:text-amber-300">{summary.counts.PARTIALLY_IMPLEMENTED}</p>
+        </div>
+        <div className="p-4 rounded-xl border border-rose-500/30 bg-white dark:bg-[#0D1326]">
+          <p className="text-slate-500">BLOCKED (External Deps)</p>
+          <p className="font-bold text-xl mt-1 text-rose-600 dark:text-rose-400">{summary.counts.BLOCKED}</p>
+        </div>
+        {liveChecks && (
           <div className="p-4 rounded-xl border border-[#C59326]/40 bg-[#F7F2E4] dark:bg-[#0D1326]">
-            <p className="text-slate-500">Ephemeris Checkpoints</p>
-            <p className="font-bold text-base mt-1 text-emerald-700 dark:text-emerald-400">
-              {liveChecks.ephemerisPassed ? '4/4 Passed' : 'Check Failed'}
+            <p className="text-slate-500">Live API &amp; Flags ({liveChecks.checkedAt})</p>
+            <p className="font-bold text-sm mt-1">
+              {liveChecks.healthOk ? '200 OK' : 'Offline'} · {liveChecks.featureFlagsCount} DB Flags
             </p>
           </div>
-          <div className="p-4 rounded-xl border border-[#C59326]/40 bg-[#F7F2E4] dark:bg-[#0D1326]">
-            <p className="text-slate-500">Backend API Health</p>
-            <p className="font-bold text-base mt-1">{liveChecks.healthOk ? 'Connected (200 OK)' : 'Offline Mode'}</p>
-          </div>
-          <div className="p-4 rounded-xl border border-[#C59326]/40 bg-[#F7F2E4] dark:bg-[#0D1326]">
-            <p className="text-slate-500">Open Datasets Verified</p>
-            <p className="font-bold text-base mt-1">{liveChecks.datasetsCount} SHA-256 Sets</p>
-          </div>
-          <div className="p-4 rounded-xl border border-[#C59326]/40 bg-[#F7F2E4] dark:bg-[#0D1326]">
-            <p className="text-slate-500">DB Feature Flags</p>
-            <p className="font-bold text-base mt-1">{liveChecks.featureFlagsCount} Active ({liveChecks.checkedAt})</p>
-          </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="flex flex-wrap gap-3 items-center">
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search feature # or title..."
-          className="px-3 py-2 rounded-lg border border-[#D8CBAF] dark:border-slate-700 bg-white dark:bg-[#0D1326] text-xs w-64"
+          placeholder="Search 350 modules by code, title, or note..."
+          className="px-3 py-2 rounded-lg border border-[#D8CBAF] dark:border-slate-700 bg-white dark:bg-[#0D1326] text-xs w-72"
         />
         <select
           value={filterCat}
@@ -903,36 +937,57 @@ export function TestRegistryPage() {
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="px-3 py-2 rounded-lg border border-[#D8CBAF] dark:border-slate-700 bg-white dark:bg-[#0D1326] text-xs"
+        >
+          <option value="All">All Statuses</option>
+          <option value="WORKING">WORKING ({summary.counts.WORKING})</option>
+          <option value="PARTIALLY_IMPLEMENTED">PARTIALLY_IMPLEMENTED ({summary.counts.PARTIALLY_IMPLEMENTED})</option>
+          <option value="BLOCKED">BLOCKED ({summary.counts.BLOCKED})</option>
+        </select>
+        <span className="text-xs text-slate-500 font-mono">Showing {filtered.length} of {summary.totalModules}</span>
       </div>
 
       <div className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0D1326] overflow-x-auto">
         <table className="w-full text-xs text-left tabular-nums">
           <thead>
             <tr className="border-b border-[#E7DEC8] dark:border-slate-800 text-slate-500 bg-[#F7F2E4]/60 dark:bg-slate-900">
-              <th className="py-2.5 px-4">#</th>
-              <th className="py-2.5 px-4">Feature</th>
-              <th className="py-2.5 px-4">Category</th>
-              <th className="py-2.5 px-4">Engine / Module</th>
-              <th className="py-2.5 px-4">Route</th>
-              <th className="py-2.5 px-4">Status</th>
+              <th className="py-2.5 px-3">#</th>
+              <th className="py-2.5 px-3">Code</th>
+              <th className="py-2.5 px-3">Feature</th>
+              <th className="py-2.5 px-3">Category</th>
+              <th className="py-2.5 px-3">Engine / Route</th>
+              <th className="py-2.5 px-3">Status &amp; Verification Notes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#F3ECDC] dark:divide-slate-800/70">
             {filtered.map((f) => (
               <tr key={f.code}>
-                <td className="py-2 px-4 font-mono font-bold text-[#9A6D12] dark:text-amber-300">{f.code}</td>
-                <td className="py-2 px-4 font-semibold">{f.title}</td>
-                <td className="py-2 px-4 text-slate-500">{f.category}</td>
-                <td className="py-2 px-4 font-mono">{f.engineModule}</td>
-                <td className="py-2 px-4">
-                  <Link to={f.route} className="text-[#0D1B3E] dark:text-amber-300 underline font-medium">
+                <td className="py-2 px-3 font-mono text-slate-500">{f.number}</td>
+                <td className="py-2 px-3 font-mono font-bold text-[#9A6D12] dark:text-amber-300">{f.code}</td>
+                <td className="py-2 px-3 font-semibold">{f.title}</td>
+                <td className="py-2 px-3 text-slate-500">{f.category}</td>
+                <td className="py-2 px-3 font-mono">
+                  <div>{f.engineModule}</div>
+                  <Link to={f.route} className="text-[#0D1B3E] dark:text-amber-300 underline font-sans text-[11px]">
                     {f.route}
                   </Link>
                 </td>
-                <td className="py-2 px-4">
-                  <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400 font-semibold">
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Live ({f.testType})
+                <td className="py-2 px-3">
+                  <span
+                    className={`inline-flex items-center gap-1 font-semibold ${
+                      f.implementationStatus === 'WORKING'
+                        ? 'text-emerald-700 dark:text-emerald-400'
+                        : f.implementationStatus === 'PARTIALLY_IMPLEMENTED'
+                        ? 'text-amber-700 dark:text-amber-300'
+                        : 'text-rose-600 dark:text-rose-400'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> {f.implementationStatus}
                   </span>
+                  {f.notes && <p className="text-[11px] text-slate-500 mt-0.5">{f.notes}</p>}
                 </td>
               </tr>
             ))}

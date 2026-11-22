@@ -37,6 +37,18 @@ const MuhuratCalendarPage = lazy(() => import('./pages/MuhuratCalendarPage').the
 const DataToolsPage = lazy(() => import('./pages/DataToolsPage').then((m) => ({ default: m.DataToolsPage })));
 const WorkspacePage = lazy(() => import('./pages/WorkspaceAndRegistryPages').then((m) => ({ default: m.WorkspacePage })));
 const TestRegistryPage = lazy(() => import('./pages/WorkspaceAndRegistryPages').then((m) => ({ default: m.TestRegistryPage })));
+const IndiaLocationIntelligencePage = lazy(() =>
+  import('./pages/EcosystemHubsHtoQ').then((m) => ({ default: m.IndiaLocationIntelligencePage }))
+);
+const VedicAcademyAndGlossaryPage = lazy(() =>
+  import('./pages/EcosystemHubsHtoQ').then((m) => ({ default: m.VedicAcademyAndGlossaryPage }))
+);
+const ReportStudioPage = lazy(() =>
+  import('./pages/EcosystemHubsHtoQ').then((m) => ({ default: m.ReportStudioPage }))
+);
+const VerificationCenterPage = lazy(() =>
+  import('./pages/EcosystemHubsHtoQ').then((m) => ({ default: m.VerificationCenterPage }))
+);
 
 function PageFallback() {
   return (
@@ -112,6 +124,10 @@ export default function App() {
               <Route path="/data-tools" element={<DataToolsPage />} />
               <Route path="/workspace" element={<WorkspacePage />} />
               <Route path="/test-registry" element={<TestRegistryPage />} />
+              <Route path="/india-locations" element={<IndiaLocationIntelligencePage />} />
+              <Route path="/academy" element={<VedicAcademyAndGlossaryPage />} />
+              <Route path="/report-studio" element={<ReportStudioPage />} />
+              <Route path="/verification-center" element={<VerificationCenterPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>

@@ -3,15 +3,19 @@ import fs from 'fs';
 import path from 'path';
 import { INITIAL_ARTICLES } from '../src/data/articles';
 import { TAROT_DECK } from '../src/engine/tarot';
-import { ADVANCED_100_FEATURES } from '../src/data/featureRegistry';
+import { PLATFORM_350_FEATURES } from '../src/data/featureRegistry';
 
-const DATA_DIR = path.resolve(process.cwd(), 'data');
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+const DEFAULT_DATA_DIR = path.resolve(process.cwd(), 'data');
+export const dbPath = process.env.GOO_DB_PATH
+  ? path.resolve(process.env.GOO_DB_PATH)
+  : path.join(DEFAULT_DATA_DIR, 'goo_astrology.db');
+
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
 }
 
-const DB_PATH = path.join(DATA_DIR, 'goo_astrology.db');
-export const db = new Database(DB_PATH);
+export const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
@@ -97,13 +101,17 @@ export function initializeDatabase() {
     insSetting.run(k, v);
   }
 
-  // Seed 100 advanced feature flags
+  // Seed all 350 platform module feature flags (HONEST enabled flag reflects implemented status)
   const insFeature = db.prepare(
-    'INSERT OR IGNORE INTO feature_flags (feature_code, title, category, route, enabled) VALUES (?, ?, ?, ?, 1)'
+    'INSERT OR IGNORE INTO feature_flags (feature_code, title, category, route, enabled) VALUES (?, ?, ?, ?, ?)'
   );
-  for (const f of ADVANCED_100_FEATURES) {
-    insFeature.run(f.code, f.title, f.category, f.route);
-  }
+  const seedFlags = db.transaction(() => {
+    for (const f of PLATFORM_350_FEATURES) {
+      const enabled = f.implementationStatus === 'BLOCKED' ? 0 : 1;
+      insFeature.run(f.code, f.title, f.category, f.route, enabled);
+    }
+  });
+  seedFlags();
 
   // Seed ad placements (all disabled by default — no fake ads)
   const insAd = db.prepare(

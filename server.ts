@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
+import { z } from 'zod';
 import { createServer as createViteServer } from 'vite';
 import { db, initializeDatabase, writeAuditLog } from './server/db';
 import {
@@ -26,13 +27,52 @@ import { calculateAshtakoot } from './src/engine/ashtakoot';
 import { calculatePanchang } from './src/engine/panchang';
 import { getUpcomingEclipses } from './src/engine/planetaryIntelligence';
 import { ZODIAC_SIGNS } from './src/engine/constants';
-import { SUPPORTED_LANGUAGES } from './src/data/locales';
+import { SUPPORTED_LANGUAGES, type IndianLanguageCode } from './src/data/locales';
+import { INDIA_STATES_AND_UTS, resolveIndiaLocation } from './src/data/indiaLocations';
 
 initializeDatabase();
 initializeSyncDatasets();
 
-const app = express();
+export const app = express();
 const PORT = Number(process.env.PORT || 3000);
+
+const VALID_LANGUAGE_CODES = new Set<string>(SUPPORTED_LANGUAGES.map((l) => l.code));
+function normalizeLanguageCode(raw: unknown): IndianLanguageCode {
+  if (typeof raw === 'string' && VALID_LANGUAGE_CODES.has(raw)) {
+    return raw as IndianLanguageCode;
+  }
+  return 'en';
+}
+
+const birthInputSchema = z.object({
+  name: z.string().trim().min(1).max(80).default('Subject'),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'date must be YYYY-MM-DD')
+    .refine((d) => {
+      const [y, m, day] = d.split('-').map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, day));
+      return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === day;
+    }, 'Invalid calendar date'),
+  time: z
+    .string()
+    .regex(/^\d{1,2}:\d{2}(:\d{2})?$/, 'time must be HH:MM or HH:MM:SS')
+    .default('12:00'),
+  latitude: z.number().finite().min(-90).max(90),
+  longitude: z.number().finite().min(-180).max(180),
+  timezoneOffsetMinutes: z.number().finite().min(-720).max(840).default(330),
+  timezoneName: z.string().max(80).optional(),
+  placeName: z.string().max(120).optional(),
+  ayanamsha: z.enum(['lahiri', 'raman', 'kp', 'tropical']).default('lahiri'),
+  unknownBirthTime: z.boolean().optional(),
+});
+
+const registerSchema = z.object({
+  email: z.string().trim().email().max(160),
+  password: z.string().min(8).max(128),
+  fullName: z.string().trim().max(80).optional(),
+  preferredLanguage: z.string().optional(),
+});
 
 app.use(express.json({ limit: '2mb' }));
 
@@ -78,6 +118,7 @@ app.get('/sitemap.xml', (req, res) => {
   const staticPaths = [
     '/', '/free-kundli', '/kundli-matching', '/panchang', '/muhurat', '/muhurat-calendar',
     '/research', '/planetary-intelligence', '/life-analysis', '/data-tools', '/workspace', '/test-registry',
+    '/india-locations', '/academy', '/report-studio', '/verification-center',
     '/horoscope', '/dasha', '/dosha', '/yoga', '/tarot', '/numerology',
     '/vastu', '/lal-kitab', '/kp-astrology', '/baby-names', '/tools',
     '/astrologers', '/consultation', '/ai-astrologer', '/blog',
@@ -112,14 +153,16 @@ app.get('/sitemap.xml', (req, res) => {
 
 // --- AUTHENTICATION ---
 app.post('/api/auth/register', rateLimit(15, 60_000), (req, res) => {
-  const { email, password, fullName, preferredLanguage } = req.body || {};
-  if (typeof email !== 'string' || !email.includes('@') || typeof password !== 'string' || password.length < 8) {
+  const parsed = registerSchema.safeParse(req.body || {});
+  if (!parsed.success) {
     res.status(400).json({ error: 'Valid email and password (min 8 chars) are required.' });
     return;
   }
-  const cleanEmail = email.trim().toLowerCase();
-  const cleanName = typeof fullName === 'string' && fullName.trim() ? fullName.trim().slice(0, 80) : cleanEmail.split('@')[0];
-  const lang = preferredLanguage === 'hi' ? 'hi' : 'en';
+  const cleanEmail = parsed.data.email.toLowerCase();
+  const cleanName = parsed.data.fullName && parsed.data.fullName.length > 0
+    ? parsed.data.fullName
+    : cleanEmail.split('@')[0];
+  const lang = normalizeLanguageCode(parsed.data.preferredLanguage);
 
   const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(cleanEmail);
   if (existing) {
@@ -127,7 +170,7 @@ app.post('/api/auth/register', rateLimit(15, 60_000), (req, res) => {
     return;
   }
 
-  const hash = hashPassword(password);
+  const hash = hashPassword(parsed.data.password);
   const info = db
     .prepare('INSERT INTO users (email, password_hash, full_name, role, preferred_language) VALUES (?, ?, ?, ?, ?)')
     .run(cleanEmail, hash, cleanName, 'user', lang);
@@ -254,17 +297,18 @@ app.post('/api/admin/bootstrap', rateLimit(10, 60_000), (req, res) => {
 
 // --- ASTROLOGY CALCULATIONS + REPORT PERSISTENCE ---
 app.post('/api/kundli', attachUserOptional, (req: AuthenticatedRequest, res) => {
+  const parsed = birthInputSchema.safeParse(req.body || {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message || 'Date, latitude, and longitude are required.' });
+    return;
+  }
   try {
-    const input = req.body;
-    if (!input?.date || typeof input.latitude !== 'number' || typeof input.longitude !== 'number') {
-      res.status(400).json({ error: 'Date, latitude, and longitude are required.' });
-      return;
-    }
+    const input = parsed.data;
     const result = calculateKundli(input);
     if (req.user) {
       db.prepare('INSERT INTO kundli_reports (user_id, subject_name, input_json, summary_json) VALUES (?, ?, ?, ?)').run(
         req.user.id,
-        input.name || 'Chart',
+        input.name,
         JSON.stringify(input),
         JSON.stringify({
           ascendant: result.ascendant.signName,
@@ -280,19 +324,20 @@ app.post('/api/kundli', attachUserOptional, (req: AuthenticatedRequest, res) => 
 });
 
 app.post('/api/matching', attachUserOptional, (req: AuthenticatedRequest, res) => {
+  const parsed = z.object({ bride: birthInputSchema, groom: birthInputSchema }).safeParse(req.body || {});
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Valid bride and groom birth details are required.' });
+    return;
+  }
   try {
-    const { bride, groom } = req.body || {};
-    if (!bride?.date || !groom?.date) {
-      res.status(400).json({ error: 'Both bride and groom birth details are required.' });
-      return;
-    }
+    const { bride, groom } = parsed.data;
     const brideKundli = calculateKundli(bride);
     const groomKundli = calculateKundli(groom);
     const report = calculateAshtakoot(brideKundli, groomKundli);
     if (req.user) {
       db.prepare(
         'INSERT INTO compatibility_reports (user_id, bride_name, groom_name, total_score, report_json) VALUES (?, ?, ?, ?, ?)'
-      ).run(req.user.id, bride.name || 'Bride', groom.name || 'Groom', report.totalScore, JSON.stringify(report));
+      ).run(req.user.id, bride.name, groom.name, report.totalScore, JSON.stringify(report));
     }
     res.json({ brideKundli, groomKundli, report });
   } catch (err) {
@@ -321,7 +366,7 @@ app.post('/api/ai/chat', rateLimit(25, 60_000), attachUserOptional, async (req: 
   }
   const result = await runAiAstrologer({
     question: question.trim().slice(0, 1500),
-    language: language === 'hi' ? 'hi' : 'en',
+    language: normalizeLanguageCode(language),
     kundliContext: kundliContext || null,
     history: Array.isArray(history) ? history : [],
   });
@@ -392,19 +437,39 @@ app.delete('/api/user/saved-readings/:id', requireAuth, (req: AuthenticatedReque
 });
 
 app.put('/api/user/profile', requireAuth, (req: AuthenticatedRequest, res) => {
-  const { fullName, phone, city, bio, preferredLanguage } = req.body || {};
-  if (fullName) {
+  const { fullName, phone, city, bio, preferredLanguage, privacyPublicChart } = req.body || {};
+  const nextLang = preferredLanguage !== undefined
+    ? normalizeLanguageCode(preferredLanguage)
+    : req.user!.preferredLanguage;
+  if (fullName || preferredLanguage !== undefined) {
     db.prepare("UPDATE users SET full_name = ?, preferred_language = ?, updated_at = datetime('now') WHERE id = ?").run(
-      String(fullName).slice(0, 80),
-      preferredLanguage === 'hi' ? 'hi' : 'en',
+      fullName ? String(fullName).slice(0, 80) : req.user!.fullName,
+      nextLang,
       req.user!.id
     );
   }
-  db.prepare('INSERT OR REPLACE INTO user_profiles (user_id, phone, city, bio) VALUES (?, ?, ?, ?)').run(
+  const existingProfile = db
+    .prepare('SELECT privacy_public_chart FROM user_profiles WHERE user_id = ?')
+    .get(req.user!.id) as { privacy_public_chart: number } | undefined;
+  const privacyFlag =
+    typeof privacyPublicChart === 'boolean'
+      ? privacyPublicChart ? 1 : 0
+      : existingProfile?.privacy_public_chart ?? 0;
+
+  db.prepare(
+    `INSERT INTO user_profiles (user_id, phone, city, bio, privacy_public_chart)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(user_id) DO UPDATE SET
+       phone = excluded.phone,
+       city = excluded.city,
+       bio = excluded.bio,
+       privacy_public_chart = excluded.privacy_public_chart`
+  ).run(
     req.user!.id,
     String(phone || '').slice(0, 30),
     String(city || '').slice(0, 80),
-    String(bio || '').slice(0, 500)
+    String(bio || '').slice(0, 500),
+    privacyFlag
   );
   res.json({ ok: true });
 });
@@ -506,18 +571,24 @@ app.post('/api/feedback', rateLimit(10, 60_000), (req, res) => {
 
 // --- ADMIN CONTROL PANEL ENDPOINTS ---
 app.get('/api/admin/overview', requireAdmin, (_req, res) => {
-  const count = (table: string) => (db.prepare(`SELECT COUNT(*) as c FROM ${table}`).get() as { c: number }).c;
+  const usersCount = (db.prepare('SELECT COUNT(*) as c FROM users').get() as { c: number }).c;
+  const kundliReportsCount = (db.prepare('SELECT COUNT(*) as c FROM kundli_reports').get() as { c: number }).c;
+  const compatibilityReportsCount = (db.prepare('SELECT COUNT(*) as c FROM compatibility_reports').get() as { c: number }).c;
+  const astrologersCount = (db.prepare('SELECT COUNT(*) as c FROM astrologers').get() as { c: number }).c;
+  const articlesCount = (db.prepare('SELECT COUNT(*) as c FROM articles').get() as { c: number }).c;
+  const feedbackCount = (db.prepare('SELECT COUNT(*) as c FROM feedback').get() as { c: number }).c;
+  const consultationsCount = (db.prepare('SELECT COUNT(*) as c FROM consultations').get() as { c: number }).c;
   const pendingAstro = (db.prepare("SELECT COUNT(*) as c FROM astrologers WHERE approval_status = 'pending'").get() as { c: number }).c;
   res.json({
     metrics: {
-      users: count('users'),
-      kundliReports: count('kundli_reports'),
-      compatibilityReports: count('compatibility_reports'),
-      astrologers: count('astrologers'),
+      users: usersCount,
+      kundliReports: kundliReportsCount,
+      compatibilityReports: compatibilityReportsCount,
+      astrologers: astrologersCount,
       pendingAstrologers: pendingAstro,
-      articles: count('articles'),
-      feedback: count('feedback'),
-      consultations: count('consultations'),
+      articles: articlesCount,
+      feedback: feedbackCount,
+      consultations: consultationsCount,
     },
   });
 });
@@ -880,15 +951,29 @@ app.post('/api/workspace/certification', requireAuth, (req: AuthenticatedRequest
   res.json({ score, passed, correct, total: key.length, certificateCode: certCode });
 });
 
-// --- DEVELOPER SDK & LOCAL CALCULATION API v1 (Feature 100) ---
+// --- DEVELOPER SDK & LOCAL CALCULATION API v1 (Feature 100 + Domain H Gazetteer) ---
+app.get('/api/v1/locations/search', rateLimit(120, 60_000), (req, res) => {
+  const q = typeof req.query.q === 'string' ? req.query.q : '';
+  res.json({ apiVersion: 'v1', ...resolveIndiaLocation(q) });
+});
+
+app.get('/api/v1/locations/states', rateLimit(120, 60_000), (_req, res) => {
+  res.json({
+    apiVersion: 'v1',
+    statesCount: INDIA_STATES_AND_UTS.filter((s) => s.type === 'State').length,
+    unionTerritoriesCount: INDIA_STATES_AND_UTS.filter((s) => s.type === 'Union Territory').length,
+    regions: INDIA_STATES_AND_UTS,
+  });
+});
+
 app.post('/api/v1/calculate/kundli', rateLimit(60, 60_000), (req, res) => {
+  const parsed = birthInputSchema.safeParse(req.body || {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message || 'date, latitude, and longitude are required.' });
+    return;
+  }
   try {
-    const input = req.body;
-    if (!input?.date || typeof input.latitude !== 'number' || typeof input.longitude !== 'number') {
-      res.status(400).json({ error: 'date, latitude, and longitude are required.' });
-      return;
-    }
-    res.json({ apiVersion: 'v1', license: 'MIT-Calculation-Engine', data: calculateKundli(input) });
+    res.json({ apiVersion: 'v1', license: 'MIT-Calculation-Engine', data: calculateKundli(parsed.data) });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : 'Invalid input' });
   }
@@ -906,14 +991,14 @@ app.get('/api/v1/calculate/panchang', rateLimit(60, 60_000), (req, res) => {
 });
 
 app.post('/api/v1/calculate/matching', rateLimit(60, 60_000), (req, res) => {
+  const parsed = z.object({ bride: birthInputSchema, groom: birthInputSchema }).safeParse(req.body || {});
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Valid bride and groom birth inputs required.' });
+    return;
+  }
   try {
-    const { bride, groom } = req.body || {};
-    if (!bride?.date || !groom?.date) {
-      res.status(400).json({ error: 'bride and groom birth inputs required.' });
-      return;
-    }
-    const b = calculateKundli(bride);
-    const g = calculateKundli(groom);
+    const b = calculateKundli(parsed.data.bride);
+    const g = calculateKundli(parsed.data.groom);
     res.json({ apiVersion: 'v1', report: calculateAshtakoot(b, g) });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : 'Invalid input' });
@@ -948,4 +1033,6 @@ async function startServer() {
   });
 }
 
-startServer();
+if (process.env.GOO_SKIP_LISTEN !== '1') {
+  startServer();
+}

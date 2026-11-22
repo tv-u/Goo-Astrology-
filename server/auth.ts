@@ -3,11 +3,17 @@ import type { NextFunction, Request, Response } from 'express';
 import { db } from './db';
 
 const EPHEMERAL_SECRET = crypto.randomBytes(32).toString('hex');
+let warnedEphemeral = false;
 
 function getSigningSecret(): string {
-  return process.env.SESSION_SECRET && process.env.SESSION_SECRET.length >= 16
-    ? process.env.SESSION_SECRET
-    : EPHEMERAL_SECRET;
+  if (process.env.SESSION_SECRET && process.env.SESSION_SECRET.length >= 16) {
+    return process.env.SESSION_SECRET;
+  }
+  if (!warnedEphemeral && process.env.GOO_SKIP_LISTEN !== '1') {
+    warnedEphemeral = true;
+    console.info('[auth] SESSION_SECRET not set; using ephemeral in-memory signing secret for this session.');
+  }
+  return EPHEMERAL_SECRET;
 }
 
 export function hashPassword(password: string): string {
@@ -17,13 +23,18 @@ export function hashPassword(password: string): string {
 }
 
 export function verifyPassword(password: string, storedHash: string): boolean {
-  const parts = storedHash.split(':');
-  if (parts.length !== 2) return false;
-  const [salt, hashHex] = parts;
-  const derived = crypto.scryptSync(password, salt, 64);
-  const storedBuf = Buffer.from(hashHex, 'hex');
-  if (derived.length !== storedBuf.length) return false;
-  return crypto.timingSafeEqual(derived, storedBuf);
+  try {
+    const parts = storedHash.split(':');
+    if (parts.length !== 2) return false;
+    const [salt, hashHex] = parts;
+    if (!salt || !hashHex || !/^[0-9a-f]+$/i.test(hashHex)) return false;
+    const derived = crypto.scryptSync(password, salt, 64);
+    const storedBuf = Buffer.from(hashHex, 'hex');
+    if (derived.length !== storedBuf.length) return false;
+    return crypto.timingSafeEqual(derived, storedBuf);
+  } catch {
+    return false;
+  }
 }
 
 export interface SessionPayload {
@@ -129,6 +140,10 @@ export function requireAdmin(req: AuthenticatedRequest, res: Response, next: Nex
 
 // Simple sliding-window rate limiter
 const rateBuckets = new Map<string, number[]>();
+
+export function clearRateLimitBuckets(): void {
+  rateBuckets.clear();
+}
 
 export function rateLimit(maxRequests: number, windowMs: number) {
   return (req: Request, res: Response, next: NextFunction) => {

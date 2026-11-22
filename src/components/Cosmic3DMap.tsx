@@ -28,6 +28,7 @@ export const Cosmic3DMap: React.FC<Cosmic3DMapProps> = ({ planets, lagnaSignInde
   const [autoRotate, setAutoRotate] = useState(true);
   const [showNakshatras, setShowNakshatras] = useState(true);
   const [selectedInfo, setSelectedInfo] = useState<string>('Click any 3D planet node to inspect its sidereal coordinates.');
+  const [webglUnavailable, setWebglUnavailable] = useState(false);
   const controlsRef = useRef<OrbitControls | null>(null);
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const nakGroupRef = useRef<THREE.Group | null>(null);
@@ -53,8 +54,22 @@ export const Cosmic3DMap: React.FC<Cosmic3DMapProps> = ({ planets, lagnaSignInde
     const width = container.clientWidth || 720;
     const height = container.clientHeight || 420;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    const gl = renderer.getContext();
+    let renderer: THREE.WebGLRenderer;
+    let gl: WebGLRenderingContext | WebGL2RenderingContext;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+      gl = renderer.getContext();
+      if (!gl) {
+        renderer.dispose();
+        setWebglUnavailable(true);
+        return;
+      }
+      setWebglUnavailable(false);
+    } catch {
+      setWebglUnavailable(true);
+      return;
+    }
+
     const dbg = gl.getExtension('WEBGL_debug_renderer_info');
     const gpuStr = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL)) : '';
     const isSoftwareGl = /SwiftShader|llvmpipe|Microsoft Basic Render Driver/i.test(gpuStr);
@@ -292,7 +307,31 @@ export const Cosmic3DMap: React.FC<Cosmic3DMapProps> = ({ planets, lagnaSignInde
 
   return (
     <div className="relative rounded-xl overflow-hidden border border-[#C59326]/30 bg-[#091229] shadow-sm">
-      <div ref={mountRef} className="w-full h-[420px] cursor-grab active:cursor-grabbing" />
+      {webglUnavailable ? (
+        <div className="p-6 text-slate-200 space-y-4 min-h-[260px]">
+          <p className="text-xs font-semibold uppercase tracking-wider text-amber-300">
+            WebGL Hardware Context Unavailable — Accessible Sidereal Coordinate View Active
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            {planets.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() =>
+                  setSelectedInfo(`${p.id}: ${p.signName} ${p.dms} · ${p.nakshatraName} Pada ${p.pada} · House ${p.house}`)
+                }
+                className="p-3 rounded-lg border border-slate-700/80 bg-[#0D1633] text-left hover:border-amber-400 cursor-pointer"
+              >
+                <div className="font-bold text-amber-300">{p.id}</div>
+                <div className="font-mono mt-0.5">{p.signName} {p.dms}</div>
+                <div className="text-slate-400 mt-0.5">{p.nakshatraName} P{p.pada} · H{p.house}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div ref={mountRef} className="w-full h-[420px] cursor-grab active:cursor-grabbing" />
+      )}
       <div className="px-4 py-2.5 bg-[#070E20]/95 border-t border-[#C59326]/25 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-200">
         <div className="flex items-center gap-2 min-w-0">
           <Sparkles className="w-3.5 h-3.5 text-amber-400 shrink-0" />
