@@ -84,3 +84,12 @@ export function searchCities(query: string): CityRecord[] {
       c.country.toLowerCase().includes(q)
   ).slice(0, 15);
 }
+
+export interface IndianCityEntry extends CityRecord {
+  name: string;
+}
+
+export const INDIAN_CITIES: IndianCityEntry[] = CITIES_DATASET.map((c) => ({
+  ...c,
+  name: c.city,
+}));

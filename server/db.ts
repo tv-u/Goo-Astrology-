@@ -3,6 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { INITIAL_ARTICLES } from '../src/data/articles';
 import { TAROT_DECK } from '../src/engine/tarot';
+import { ADVANCED_100_FEATURES } from '../src/data/featureRegistry';
 
 const DATA_DIR = path.resolve(process.cwd(), 'data');
 if (!fs.existsSync(DATA_DIR)) {
@@ -18,6 +19,11 @@ export function initializeDatabase() {
   const schemaPath = path.resolve(process.cwd(), 'migrations', '0001_init.sql');
   const schemaSql = fs.readFileSync(schemaPath, 'utf-8');
   db.exec(schemaSql);
+
+  const ecosystemPath = path.resolve(process.cwd(), 'migrations', '0002_ecosystem.sql');
+  if (fs.existsSync(ecosystemPath)) {
+    db.exec(fs.readFileSync(ecosystemPath, 'utf-8'));
+  }
 
   // Seed default roles
   const insertRole = db.prepare('INSERT OR IGNORE INTO roles (name, description) VALUES (?, ?)');
@@ -76,7 +82,7 @@ export function initializeDatabase() {
   const insSetting = db.prepare('INSERT OR IGNORE INTO website_settings (key, value) VALUES (?, ?)');
   const defaultSettings: [string, string][] = [
     ['site_name', 'GOO ASTROLOGY UNLIMITED FREE'],
-    ['tagline', 'Discover Your Stars. Understand Your Life.'],
+    ['tagline', 'Your Universe. Your Kundli. Your Cosmic Journey.'],
     ['default_ayanamsha', 'lahiri'],
     ['default_language', 'en'],
     ['maintenance_mode', 'false'],
@@ -85,9 +91,18 @@ export function initializeDatabase() {
     ['rtc_provider_configured', 'false'],
     ['google_search_console_meta', ''],
     ['indexnow_key', ''],
+    ['auto_sync_interval_hours', '24'],
   ];
   for (const [k, v] of defaultSettings) {
     insSetting.run(k, v);
+  }
+
+  // Seed 100 advanced feature flags
+  const insFeature = db.prepare(
+    'INSERT OR IGNORE INTO feature_flags (feature_code, title, category, route, enabled) VALUES (?, ?, ?, ?, 1)'
+  );
+  for (const f of ADVANCED_100_FEATURES) {
+    insFeature.run(f.code, f.title, f.category, f.route);
   }
 
   // Seed ad placements (all disabled by default — no fake ads)

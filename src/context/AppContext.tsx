@@ -1,8 +1,14 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { KundliResult } from '../engine/ephemeris';
+import {
+  LOCALE_STRINGS,
+  SUPPORTED_LANGUAGES,
+  type IndianLanguageCode,
+  type LocaleDictionary,
+} from '../data/locales';
 
-export type Language = 'en' | 'hi';
-export type Theme = 'dark' | 'light';
+export type Language = IndianLanguageCode;
+export type Theme = 'light' | 'dark';
 
 export interface AuthUser {
   id: number;
@@ -15,6 +21,7 @@ export interface AuthUser {
 interface AppContextValue {
   language: Language;
   setLanguage: (l: Language) => void;
+  locale: LocaleDictionary;
   theme: Theme;
   toggleTheme: () => void;
   user: AuthUser | null;
@@ -30,10 +37,21 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
+function detectInitialLanguage(): Language {
+  if (typeof window !== 'undefined') {
+    const param = new URLSearchParams(window.location.search).get('lang');
+    if (param && SUPPORTED_LANGUAGES.some((l) => l.code === param)) {
+      return param as Language;
+    }
+  }
+  return 'en';
+}
+
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [language, setLanguage] = useState<Language>('en');
-  const [theme, setTheme] = useState<Theme>('dark');
-  // Auth token kept strictly in JS memory (never localStorage/sessionStorage)
+  const [language, setLanguage] = useState<Language>(detectInitialLanguage);
+  // Default theme is White + Gold Premium ('light'); Dark mode is an optional toggle
+  const [theme, setTheme] = useState<Theme>('light');
+  // Auth token kept strictly in JS memory
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [activeKundli, setActiveKundli] = useState<KundliResult | null>(null);
@@ -66,7 +84,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const loginSession = (newToken: string, newUser: AuthUser) => {
     setToken(newToken);
     setUser(newUser);
-    if (newUser.preferredLanguage === 'hi') setLanguage('hi');
+    if (SUPPORTED_LANGUAGES.some((l) => l.code === newUser.preferredLanguage)) {
+      setLanguage(newUser.preferredLanguage as Language);
+    }
   };
 
   const logoutSession = () => {
@@ -74,13 +94,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
-  const t = (en: string, hi: string) => (language === 'hi' ? hi : en);
+  const t = (en: string, hi: string) => (language === 'hi' || language === 'sa' ? hi : en);
+  const locale = LOCALE_STRINGS[language] || LOCALE_STRINGS.en;
 
   return (
     <AppContext.Provider
       value={{
         language,
         setLanguage,
+        locale,
         theme,
         toggleTheme,
         user,

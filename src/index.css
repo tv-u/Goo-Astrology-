@@ -4,8 +4,12 @@
 @layer base {
   :root {
     --font-display: 'Cormorant Garamond', Georgia, serif;
-    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-sans: 'Plus Jakarta Sans', 'Noto Sans Devanagari', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    --ivory-bg: #FCFBF7;
+    --champagne-surface: #F7F2E4;
+    --royal-gold: #C59326;
+    --deep-navy: #0D1B3E;
   }
 
   html {
@@ -22,23 +26,42 @@
   }
 }
 
-@keyframes star-drift {
-  0%, 100% {
-    opacity: 0.45;
-  }
-  50% {
-    opacity: 0.85;
-  }
+.white-glass {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(197, 147, 38, 0.24);
+}
+
+.dark .white-glass {
+  background: rgba(13, 19, 38, 0.78);
+  border: 1px solid rgba(251, 191, 36, 0.16);
 }
 
 .cosmic-stars {
   background-image:
+    radial-gradient(1px 1px at 18% 24%, rgba(197, 147, 38, 0.3), transparent),
+    radial-gradient(1px 1px at 42% 68%, rgba(13, 27, 62, 0.15), transparent),
+    radial-gradient(1.5px 1.5px at 76% 19%, rgba(197, 147, 38, 0.25), transparent),
+    radial-gradient(1px 1px at 88% 72%, rgba(13, 27, 62, 0.12), transparent);
+  background-size: 320px 320px;
+}
+
+.dark .cosmic-stars {
+  background-image:
     radial-gradient(1px 1px at 18% 24%, rgba(251, 191, 36, 0.35), transparent),
     radial-gradient(1px 1px at 42% 68%, rgba(196, 181, 253, 0.35), transparent),
     radial-gradient(1.5px 1.5px at 76% 19%, rgba(251, 191, 36, 0.3), transparent),
-    radial-gradient(1px 1px at 88% 72%, rgba(255, 255, 255, 0.25), transparent),
-    radial-gradient(1px 1px at 12% 84%, rgba(196, 181, 253, 0.3), transparent);
-  background-size: 320px 320px;
+    radial-gradient(1px 1px at 88% 72%, rgba(255, 255, 255, 0.25), transparent);
+}
+
+@media print {
+  header, footer, nav, .no-print {
+    display: none !important;
+  }
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

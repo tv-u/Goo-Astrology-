@@ -1,6 +1,5 @@
 import 'dotenv/config';
 import express from 'express';
-import fs from 'fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { db, initializeDatabase, writeAuditLog } from './server/db';
@@ -15,17 +14,27 @@ import {
   type AuthenticatedRequest,
 } from './server/auth';
 import { runAiAstrologer } from './server/ai';
+import {
+  getPublicDatasetPayload,
+  getSyncOverview,
+  initializeSyncDatasets,
+  rollbackDataset,
+  runDatasetSync,
+} from './server/syncEngine';
 import { calculateKundli } from './src/engine/ephemeris';
 import { calculateAshtakoot } from './src/engine/ashtakoot';
 import { calculatePanchang } from './src/engine/panchang';
+import { getUpcomingEclipses } from './src/engine/planetaryIntelligence';
 import { ZODIAC_SIGNS } from './src/engine/constants';
+import { SUPPORTED_LANGUAGES } from './src/data/locales';
 
 initializeDatabase();
+initializeSyncDatasets();
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
 
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '2mb' }));
 
 // Security headers (no X-Frame-Options so AI Studio iframe preview works smoothly)
 app.use((_req, res, next) => {
@@ -47,6 +56,7 @@ app.get('/api/health', (_req, res) => {
     geminiConfigured,
     rtcConfigured,
     database: 'sqlite',
+    d1BindingName: 'u-tv',
     timezone: 'Asia/Kolkata',
   });
 });
@@ -60,13 +70,14 @@ app.get('/api/settings/public', (_req, res) => {
   res.json({ settings, ads });
 });
 
-// Dynamic XML Sitemap
+// Dynamic Multilingual XML Sitemap (12 Indian Languages hreflang + fixed permalinks)
 app.get('/sitemap.xml', (req, res) => {
   const baseUrl = process.env.APP_URL && process.env.APP_URL !== 'MY_APP_URL'
     ? process.env.APP_URL.replace(/\/$/, '')
     : `${req.protocol}://${req.get('host')}`;
   const staticPaths = [
-    '/', '/free-kundli', '/kundli-matching', '/panchang', '/muhurat',
+    '/', '/free-kundli', '/kundli-matching', '/panchang', '/muhurat', '/muhurat-calendar',
+    '/research', '/planetary-intelligence', '/life-analysis', '/data-tools', '/workspace', '/test-registry',
     '/horoscope', '/dasha', '/dosha', '/yoga', '/tarot', '/numerology',
     '/vastu', '/lal-kitab', '/kp-astrology', '/baby-names', '/tools',
     '/astrologers', '/consultation', '/ai-astrologer', '/blog',
@@ -77,15 +88,26 @@ app.get('/sitemap.xml', (req, res) => {
     .prepare("SELECT slug, published_at FROM articles WHERE status = 'published'")
     .all() as { slug: string; published_at: string }[];
 
+  const makeAlternates = (p: string) =>
+    SUPPORTED_LANGUAGES.map(
+      (l) =>
+        `<xhtml:link rel="alternate" hreflang="${l.hreflang}" href="${baseUrl}${p}${l.code === 'en' ? '' : `?lang=${l.code}`}"/>`
+    ).join('');
+
   const urls = [
-    ...staticPaths.map((p) => `<url><loc>${baseUrl}${p}</loc><changefreq>weekly</changefreq></url>`),
+    ...staticPaths.map(
+      (p) => `<url><loc>${baseUrl}${p}</loc>${makeAlternates(p)}<changefreq>weekly</changefreq></url>`
+    ),
     ...articles.map(
-      (a) => `<url><loc>${baseUrl}/articles/${a.slug}</loc><lastmod>${a.published_at}</lastmod></url>`
+      (a) =>
+        `<url><loc>${baseUrl}/articles/${a.slug}</loc><lastmod>${a.published_at}</lastmod></url>`
     ),
   ].join('');
 
   res.setHeader('Content-Type', 'application/xml');
-  res.send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
+  res.send(
+    `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${urls}</urlset>`
+  );
 });
 
 // --- AUTHENTICATION ---
@@ -636,6 +658,273 @@ app.get('/api/admin/export', requireAdmin, (req: AuthenticatedRequest, res) => {
     astrologers: db.prepare('SELECT * FROM astrologers').all(),
     feedback: db.prepare('SELECT * FROM feedback').all(),
   });
+});
+
+// --- OPEN DATA AUTO SYNC & PUBLIC DATASET EXPLORER (Features 79-82, 99) ---
+app.get('/api/sync/status', (_req, res) => {
+  res.json(getSyncOverview());
+});
+
+app.get('/api/datasets/:key', (req, res) => {
+  const ds = getPublicDatasetPayload(String(req.params.key));
+  if (!ds) {
+    res.status(404).json({ error: 'Dataset not found.' });
+    return;
+  }
+  res.json(ds);
+});
+
+app.post('/api/admin/sync/run', requireAdmin, (req: AuthenticatedRequest, res) => {
+  const { datasetKey, simulateCorruptPayload } = req.body || {};
+  const results = runDatasetSync({
+    datasetKey: typeof datasetKey === 'string' && datasetKey ? datasetKey : undefined,
+    simulateCorruptPayload: Boolean(simulateCorruptPayload),
+  });
+  writeAuditLog(
+    req.user!.id,
+    'ADMIN_SYNC_RUN',
+    datasetKey || 'all_datasets',
+    JSON.stringify(results.map((r) => `${r.datasetKey}:${r.status}`)),
+    req.ip || ''
+  );
+  res.json({ ok: true, results, overview: getSyncOverview() });
+});
+
+app.post('/api/admin/sync/rollback', requireAdmin, (req: AuthenticatedRequest, res) => {
+  const { datasetKey } = req.body || {};
+  if (typeof datasetKey !== 'string' || !datasetKey) {
+    res.status(400).json({ error: 'datasetKey is required.' });
+    return;
+  }
+  const outcome = rollbackDataset(datasetKey);
+  if (!outcome.ok) {
+    res.status(400).json({ error: outcome.message });
+    return;
+  }
+  writeAuditLog(req.user!.id, 'ADMIN_SYNC_ROLLBACK', datasetKey, `Restored ${outcome.restoredVersion}`, req.ip || '');
+  res.json({ ...outcome, overview: getSyncOverview() });
+});
+
+// --- FEATURE FLAGS (All 100 Advanced Features) ---
+app.get('/api/features', (_req, res) => {
+  const rows = db.prepare('SELECT feature_code, title, category, route, enabled FROM feature_flags ORDER BY feature_code ASC').all();
+  res.json({ features: rows });
+});
+
+app.patch('/api/admin/features/:code', requireAdmin, (req: AuthenticatedRequest, res) => {
+  const enabled = req.body?.enabled ? 1 : 0;
+  db.prepare("UPDATE feature_flags SET enabled = ?, updated_at = datetime('now') WHERE feature_code = ?").run(
+    enabled,
+    String(req.params.code)
+  );
+  writeAuditLog(req.user!.id, 'ADMIN_FEATURE_TOGGLE', String(req.params.code), `enabled=${enabled}`, req.ip || '');
+  res.json({ ok: true });
+});
+
+// --- WORKSPACE SUITE (Features 86-98: Notes, Journal, Cases, Annotations, Certifications, Widgets) ---
+app.get('/api/workspace/state', attachUserOptional, (req: AuthenticatedRequest, res) => {
+  const uid = req.user ? req.user.id : null;
+  const where = uid ? 'WHERE user_id = ?' : 'WHERE user_id IS NULL';
+  const params = uid ? [uid] : [];
+  const notes = db.prepare(`SELECT * FROM study_notes ${where} ORDER BY id DESC LIMIT 50`).all(...params);
+  const journal = db.prepare(`SELECT * FROM journal_entries ${where} ORDER BY id DESC LIMIT 50`).all(...params);
+  const cases = db.prepare(`SELECT * FROM research_cases ${where} ORDER BY id DESC LIMIT 50`).all(...params);
+  const annotations = db.prepare(`SELECT * FROM chart_annotations ${where} ORDER BY id DESC LIMIT 50`).all(...params);
+  const certifications = uid
+    ? db.prepare('SELECT * FROM user_certifications WHERE user_id = ? ORDER BY id DESC').all(uid)
+    : [];
+  const layoutRow = uid
+    ? (db.prepare('SELECT layout_json FROM widget_layouts WHERE user_id = ?').get(uid) as { layout_json: string } | undefined)
+    : undefined;
+  res.json({
+    notes,
+    journal,
+    cases,
+    annotations,
+    certifications,
+    widgetOrder: layoutRow ? JSON.parse(layoutRow.layout_json) : null,
+  });
+});
+
+app.post('/api/workspace/notes', attachUserOptional, (req: AuthenticatedRequest, res) => {
+  const { title, topic, content, tags } = req.body || {};
+  if (!title || !content) {
+    res.status(400).json({ error: 'Title and content are required.' });
+    return;
+  }
+  const info = db
+    .prepare('INSERT INTO study_notes (user_id, title, topic, content, tags) VALUES (?, ?, ?, ?, ?)')
+    .run(req.user?.id ?? null, String(title).slice(0, 140), String(topic || 'Vedic Study').slice(0, 80), String(content).slice(0, 4000), String(tags || '').slice(0, 120));
+  res.status(201).json({ id: Number(info.lastInsertRowid) });
+});
+
+app.delete('/api/workspace/notes/:id', attachUserOptional, (req: AuthenticatedRequest, res) => {
+  if (req.user) {
+    db.prepare('DELETE FROM study_notes WHERE id = ? AND user_id = ?').run(Number(req.params.id), req.user.id);
+  } else {
+    db.prepare('DELETE FROM study_notes WHERE id = ? AND user_id IS NULL').run(Number(req.params.id));
+  }
+  res.json({ ok: true });
+});
+
+app.post('/api/workspace/journal', attachUserOptional, (req: AuthenticatedRequest, res) => {
+  const { entryDate, moonSign, dashaPeriod, reflection, transitNote } = req.body || {};
+  if (!reflection) {
+    res.status(400).json({ error: 'Journal reflection is required.' });
+    return;
+  }
+  const info = db
+    .prepare('INSERT INTO journal_entries (user_id, entry_date, moon_sign, dasha_period, reflection, transit_note) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(
+      req.user?.id ?? null,
+      String(entryDate || new Date().toISOString().slice(0, 10)),
+      String(moonSign || '').slice(0, 40),
+      String(dashaPeriod || '').slice(0, 80),
+      String(reflection).slice(0, 3000),
+      String(transitNote || '').slice(0, 400)
+    );
+  res.status(201).json({ id: Number(info.lastInsertRowid) });
+});
+
+app.delete('/api/workspace/journal/:id', attachUserOptional, (req: AuthenticatedRequest, res) => {
+  if (req.user) {
+    db.prepare('DELETE FROM journal_entries WHERE id = ? AND user_id = ?').run(Number(req.params.id), req.user.id);
+  } else {
+    db.prepare('DELETE FROM journal_entries WHERE id = ? AND user_id IS NULL').run(Number(req.params.id));
+  }
+  res.json({ ok: true });
+});
+
+app.post('/api/workspace/cases', attachUserOptional, (req: AuthenticatedRequest, res) => {
+  const { title, category, subjectName, birthJson, hypothesis, findings } = req.body || {};
+  if (!title || !subjectName || !hypothesis) {
+    res.status(400).json({ error: 'Case title, subject, and hypothesis are required.' });
+    return;
+  }
+  const info = db
+    .prepare('INSERT INTO research_cases (user_id, title, category, subject_name, birth_json, hypothesis, findings) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    .run(
+      req.user?.id ?? null,
+      String(title).slice(0, 140),
+      String(category || 'Parashari Research').slice(0, 60),
+      String(subjectName).slice(0, 80),
+      JSON.stringify(birthJson || {}),
+      String(hypothesis).slice(0, 1000),
+      String(findings || '').slice(0, 2000)
+    );
+  res.status(201).json({ id: Number(info.lastInsertRowid) });
+});
+
+app.delete('/api/workspace/cases/:id', attachUserOptional, (req: AuthenticatedRequest, res) => {
+  if (req.user) {
+    db.prepare('DELETE FROM research_cases WHERE id = ? AND user_id = ?').run(Number(req.params.id), req.user.id);
+  } else {
+    db.prepare('DELETE FROM research_cases WHERE id = ? AND user_id IS NULL').run(Number(req.params.id));
+  }
+  res.json({ ok: true });
+});
+
+app.post('/api/workspace/annotations', attachUserOptional, (req: AuthenticatedRequest, res) => {
+  const { chartName, targetRef, note, tone } = req.body || {};
+  if (!targetRef || !note) {
+    res.status(400).json({ error: 'Target house/planet and note are required.' });
+    return;
+  }
+  const info = db
+    .prepare('INSERT INTO chart_annotations (user_id, chart_name, target_ref, note, tone) VALUES (?, ?, ?, ?, ?)')
+    .run(req.user?.id ?? null, String(chartName || 'Primary D1').slice(0, 80), String(targetRef).slice(0, 60), String(note).slice(0, 600), String(tone || 'gold'));
+  res.status(201).json({ id: Number(info.lastInsertRowid) });
+});
+
+app.delete('/api/workspace/annotations/:id', attachUserOptional, (req: AuthenticatedRequest, res) => {
+  if (req.user) {
+    db.prepare('DELETE FROM chart_annotations WHERE id = ? AND user_id = ?').run(Number(req.params.id), req.user.id);
+  } else {
+    db.prepare('DELETE FROM chart_annotations WHERE id = ? AND user_id IS NULL').run(Number(req.params.id));
+  }
+  res.json({ ok: true });
+});
+
+app.put('/api/workspace/widgets', requireAuth, (req: AuthenticatedRequest, res) => {
+  const order = req.body?.widgetOrder;
+  if (!Array.isArray(order)) {
+    res.status(400).json({ error: 'widgetOrder array required.' });
+    return;
+  }
+  db.prepare("INSERT OR REPLACE INTO widget_layouts (user_id, layout_json, updated_at) VALUES (?, ?, datetime('now'))").run(
+    req.user!.id,
+    JSON.stringify(order.slice(0, 20))
+  );
+  res.json({ ok: true });
+});
+
+app.post('/api/workspace/certification', requireAuth, (req: AuthenticatedRequest, res) => {
+  const { courseSlug, answers } = req.body || {};
+  // Deterministic grading against Vedic astronomy answer key [1, 2, 0, 2, 1]
+  const key = [1, 2, 0, 2, 1];
+  const submitted = Array.isArray(answers) ? answers.map(Number) : [];
+  let correct = 0;
+  for (let i = 0; i < key.length; i++) {
+    if (submitted[i] === key[i]) correct++;
+  }
+  const score = Math.round((correct / key.length) * 100);
+  const passed = score >= 80;
+  const certCode = passed ? `GOO-${String(courseSlug || 'VEDIC').toUpperCase().slice(0, 8)}-${req.user!.id}-${Date.now().toString(36).toUpperCase()}` : '';
+  db.prepare('INSERT INTO user_certifications (user_id, course_slug, score, passed, certificate_code) VALUES (?, ?, ?, ?, ?)').run(
+    req.user!.id,
+    String(courseSlug || 'vedic-foundations'),
+    score,
+    passed ? 1 : 0,
+    certCode
+  );
+  res.json({ score, passed, correct, total: key.length, certificateCode: certCode });
+});
+
+// --- DEVELOPER SDK & LOCAL CALCULATION API v1 (Feature 100) ---
+app.post('/api/v1/calculate/kundli', rateLimit(60, 60_000), (req, res) => {
+  try {
+    const input = req.body;
+    if (!input?.date || typeof input.latitude !== 'number' || typeof input.longitude !== 'number') {
+      res.status(400).json({ error: 'date, latitude, and longitude are required.' });
+      return;
+    }
+    res.json({ apiVersion: 'v1', license: 'MIT-Calculation-Engine', data: calculateKundli(input) });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'Invalid input' });
+  }
+});
+
+app.get('/api/v1/calculate/panchang', rateLimit(60, 60_000), (req, res) => {
+  const dateStr = typeof req.query.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(req.query.date)
+    ? req.query.date
+    : new Date().toISOString().slice(0, 10);
+  const lat = Number(req.query.lat ?? 28.6139);
+  const lon = Number(req.query.lon ?? 77.209);
+  const tz = Number(req.query.tz ?? 330);
+  const place = typeof req.query.place === 'string' ? req.query.place : 'New Delhi, India';
+  res.json({ apiVersion: 'v1', data: calculatePanchang(dateStr, lat, lon, tz, place) });
+});
+
+app.post('/api/v1/calculate/matching', rateLimit(60, 60_000), (req, res) => {
+  try {
+    const { bride, groom } = req.body || {};
+    if (!bride?.date || !groom?.date) {
+      res.status(400).json({ error: 'bride and groom birth inputs required.' });
+      return;
+    }
+    const b = calculateKundli(bride);
+    const g = calculateKundli(groom);
+    res.json({ apiVersion: 'v1', report: calculateAshtakoot(b, g) });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'Invalid input' });
+  }
+});
+
+app.get('/api/v1/calculate/eclipses', rateLimit(60, 60_000), (req, res) => {
+  const dateStr = typeof req.query.date === 'string' ? req.query.date : new Date().toISOString().slice(0, 10);
+  const lat = Number(req.query.lat ?? 28.6139);
+  const lon = Number(req.query.lon ?? 77.209);
+  res.json({ apiVersion: 'v1', data: getUpcomingEclipses(dateStr, lat, lon) });
 });
 
 async function startServer() {

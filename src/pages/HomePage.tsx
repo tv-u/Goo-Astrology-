@@ -58,46 +58,52 @@ export const HomePage: React.FC = () => {
   return (
     <div>
       <SeoHead
-        title="GOO ASTROLOGY UNLIMITED FREE – Indian Vedic Kundli, Panchang & Matching"
-        description="Discover Your Stars. Understand Your Life. Accurate Lahiri Sidereal Janam Kundli, 16 Divisional Charts, Ashtakoot Matching, Daily Panchang, Tarot & Numerology."
+        title="GOO ASTROLOGY UNLIMITED FREE – Indian Vedic Kundli, Research & Panchang"
+        description="Your Universe. Your Kundli. Your Cosmic Journey. Open-source Lahiri Sidereal Janam Kundli, Shadbala, Ashtakavarga, Eclipses, 16 Divisional Charts, Ashtakoot Matching, Daily Panchang & 12-Language SEO."
       />
 
       {/* 1. Hero Section */}
-      <section className="relative overflow-hidden border-b border-slate-200 dark:border-slate-800 cosmic-stars">
+      <section className="relative overflow-hidden border-b border-[#E7DEC8] dark:border-slate-800 cosmic-stars">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 lg:py-16 grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           <div className="lg:col-span-7 flex flex-col justify-center space-y-6">
-            <p className="text-xs font-medium tracking-wider uppercase text-amber-600 dark:text-amber-400">
-              {t('Vedic Sidereal Astronomy · Lahiri Chitrapaksha · Free Unlimited Access', 'वैदिक निरयण ज्योतिष · लाहिड़ी चित्रापक्ष · पूर्णतः निःशुल्क')}
+            <p className="text-xs font-medium tracking-wider uppercase text-[#9A6D12] dark:text-amber-400">
+              {t('150 Real Vedic Modules · Open-Source & 100% Free-First · 12 Indian Languages', '150 वास्तविक वैदिक मॉड्यूल · ओपन-सोर्स एवं पूर्णतः निःशुल्क · 12 भारतीय भाषाएँ')}
             </p>
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-[3.5rem] font-bold leading-[1.08] tracking-tight text-slate-900 dark:text-white text-balance">
-              {t('Discover Your Stars. Understand Your Life.', 'अपने नक्षत्रों को जानें। अपने जीवन को समझें।')}
+            <h1 className="font-display text-4xl sm:text-5xl lg:text-[3.35rem] font-bold leading-[1.08] tracking-tight text-[#0D1B3E] dark:text-white text-balance">
+              {t('Your Universe. Your Kundli. Your Cosmic Journey.', 'आपका ब्रह्मांड। आपकी कुंडली। आपकी जीवन यात्रा।')}
             </h1>
-            <p className="text-base sm:text-lg text-slate-600 dark:text-slate-300 max-w-2xl leading-relaxed">
+            <p className="text-base sm:text-lg text-[#4A5568] dark:text-slate-300 max-w-2xl leading-relaxed">
               {t(
-                'Enterprise Indian Vedic Astrology powered by genuine astronomical ephemeris. Generate D1–D60 Kundli charts, 36-point Ashtakoot matching, city-accurate Panchang, Vimshottari Dasha, Tarot, and Numerology without paywalls.',
-                'सटीक खगोलीय गणना पर आधारित संपूर्ण भारतीय वैदिक ज्योतिष मंच। D1–D60 कुंडली, अष्टकूट मिलान, दैनिक पंचांग, दशा, टैरो और अंकशास्त्र निःशुल्क प्राप्त करें।'
+                'Enterprise Indian Vedic Astrology powered by NASA/JPL VSOP87 astronomical ephemeris. Compute D1–D60 charts, Shadbala, Sarva Ashtakavarga, KP Sub-Lords, Eclipses, 36-point Matching, and Muhurat calendars offline with zero paywalls.',
+                'NASA/JPL VSOP87 खगोलीय गणना पर आधारित संपूर्ण भारतीय वैदिक ज्योतिष मंच। D1–D60 चार्ट, षड्बल, अष्टकवर्ग, केपी सब-लॉर्ड, ग्रहण, अष्टकूट मिलान और मुहूर्त बिना किसी शुल्क के प्राप्त करें।'
               )}
             </p>
-            <div className="flex flex-wrap items-center gap-4 pt-1">
+            <div className="flex flex-wrap items-center gap-3.5 pt-1">
               <Link
                 to="/free-kundli"
-                className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 transition-colors"
+                className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold rounded-lg bg-[#C59326] hover:bg-[#b1821e] text-white transition-colors"
               >
                 {t('Generate Free Kundli', 'मुफ्त जन्म कुंडली बनाएं')}
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
+                to="/research"
+                className="inline-flex items-center gap-2 px-5 py-3 text-sm font-medium rounded-lg border border-[#E7DEC8] dark:border-slate-700 bg-white dark:bg-[#0C1226] hover:border-[#C59326] text-[#0D1B3E] dark:text-slate-100 transition-colors"
+              >
+                {t('Vedic Research Engine', 'वैदिक शोध इंजन')}
+              </Link>
+              <Link
                 to="/kundli-matching"
-                className="inline-flex items-center gap-2 px-5 py-3 text-sm font-medium rounded-lg border border-slate-300 dark:border-slate-700 hover:border-amber-500 text-slate-800 dark:text-slate-100 transition-colors"
+                className="inline-flex items-center gap-2 px-4 py-3 text-sm font-medium rounded-lg border border-[#E7DEC8] dark:border-slate-700 bg-[#F7F2E4] dark:bg-[#0C1226] hover:border-[#C59326] text-[#0D1B3E] dark:text-slate-100 transition-colors"
               >
                 {t('Kundli Matching', 'कुंडली मिलान')}
               </Link>
               <Link
                 to="/ai-astrologer"
-                className="inline-flex items-center gap-2 px-4 py-3 text-sm font-medium text-amber-700 dark:text-amber-300 hover:underline"
+                className="inline-flex items-center gap-2 px-3 py-3 text-sm font-medium text-[#9A6D12] dark:text-amber-300 hover:underline"
               >
                 <Sparkles className="w-4 h-4" />
-                {t('Ask GOO AI Astrologer', 'GOO AI ज्योतिषी से पूछें')}
+                {t('Ask GOO AI', 'GOO AI से पूछें')}
               </Link>
             </div>
           </div>
@@ -126,50 +132,92 @@ export const HomePage: React.FC = () => {
       </section>
 
       {/* 2. Live Planetary Ephemeris Strip (Full-Width 4-Column Row below Hero) */}
-      <section className="border-b border-slate-200 dark:border-slate-800 bg-white/70 dark:bg-[#0B1021]">
+      <section className="border-b border-[#E7DEC8] dark:border-slate-800 bg-[#F7F2E4]/75 dark:bg-[#0B1021]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-2 lg:grid-cols-4 gap-6">
           <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{t("Today's Tithi & Paksha", 'आज की तिथि एवं पक्ष')}</p>
-            <p className="text-lg font-semibold text-slate-900 dark:text-white mt-0.5">
+            <p className="text-xs text-[#6B5B3E] dark:text-slate-400">{t("Today's Tithi & Paksha", 'आज की तिथि एवं पक्ष')}</p>
+            <p className="text-lg font-semibold text-[#0D1B3E] dark:text-white mt-0.5">
               {todayPanchang.tithi.name}
             </p>
-            <p className="text-xs text-amber-600 dark:text-amber-400 font-mono">
+            <p className="text-xs text-[#9A6D12] dark:text-amber-400 font-mono">
               {todayPanchang.tithi.paksha} · {todayPanchang.vara.name}
             </p>
           </div>
           <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{t("Today's Nakshatra", 'आज का नक्षत्र')}</p>
-            <p className="text-lg font-semibold text-slate-900 dark:text-white mt-0.5">
+            <p className="text-xs text-[#6B5B3E] dark:text-slate-400">{t("Today's Nakshatra", 'आज का नक्षत्र')}</p>
+            <p className="text-lg font-semibold text-[#0D1B3E] dark:text-white mt-0.5">
               {todayPanchang.nakshatra.name} ({todayPanchang.nakshatra.hindiName})
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+            <p className="text-xs text-[#6B5B3E] dark:text-slate-400 font-mono">
               Pada {todayPanchang.nakshatra.pada} · Lord {todayPanchang.nakshatra.lord}
             </p>
           </div>
           <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{t('Rahu Kaal (New Delhi)', 'राहुकाल (नई दिल्ली)')}</p>
-            <p className="text-lg font-semibold font-mono tabular-nums text-slate-900 dark:text-white mt-0.5">
+            <p className="text-xs text-[#6B5B3E] dark:text-slate-400">{t('Rahu Kaal (New Delhi)', 'राहुकाल (नई दिल्ली)')}</p>
+            <p className="text-lg font-semibold font-mono tabular-nums text-[#0D1B3E] dark:text-white mt-0.5">
               {todayPanchang.rahuKaal}
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+            <p className="text-xs text-[#6B5B3E] dark:text-slate-400 font-mono">
               Sunrise {todayPanchang.sunrise} · Sunset {todayPanchang.sunset}
             </p>
           </div>
           <div>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{t('Abhijit Muhurat', 'अभिजित मुहूर्त')}</p>
-            <p className="text-lg font-semibold font-mono tabular-nums text-slate-900 dark:text-white mt-0.5">
+            <p className="text-xs text-[#6B5B3E] dark:text-slate-400">{t('Abhijit Muhurat', 'अभिजित मुहूर्त')}</p>
+            <p className="text-lg font-semibold font-mono tabular-nums text-[#0D1B3E] dark:text-white mt-0.5">
               {todayPanchang.abhijitMuhurat}
             </p>
-            <Link to="/panchang" className="text-xs text-amber-600 dark:text-amber-400 hover:underline">
+            <Link to="/panchang" className="text-xs font-medium text-[#9A6D12] dark:text-amber-400 hover:underline">
               {t('Open Full Panchang & City Selector →', 'पूर्ण पंचांग देखें →')}
             </Link>
           </div>
         </div>
       </section>
 
+      {/* 2B. Enterprise 100-Feature Ecosystem Modules (Categories A–G) */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-12">
+        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-5">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wider text-[#9A6D12] dark:text-amber-400">
+              {t('Open-Source Vedic Technology Ecosystem (Features 1–100)', 'ओपन-सोर्स वैदिक ज्योतिष पारिस्थितिकी तंत्र')}
+            </p>
+            <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#0D1B3E] dark:text-white mt-1">
+              {t('Advanced Research, Ephemeris, Muhurat & 3D Workspace', 'उन्नत शोध, ग्रह विज्ञान, मुहूर्त और 3D कार्यक्षेत्र')}
+            </h2>
+          </div>
+          <Link to="/test-registry" className="text-xs font-semibold text-[#9A6D12] dark:text-amber-400 hover:underline">
+            {t('Inspect 100-Feature Registry & Live Tests →', 'सभी 100 फ़ीचर व टेस्ट देखें →')}
+          </Link>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            ['/research', 'Cat A (1–15)', 'Vedic Research Engine', 'Shadbala, Sarva/Bhinna Ashtakavarga, Bhava Chalit, Sripati, KP Sub-Lord & Jaimini Karakamsha.'],
+            ['/planetary-intelligence', 'Cat B (16–30)', 'Planetary Intelligence', 'Graha Yuddha, Speeds, Stations, Exact Conjunctions, Solar/Lunar Eclipses & Retrograde Shadows.'],
+            ['/life-analysis', 'Cat C (31–45)', 'Life & Personal Analysis', '15-domain scoring across Career, Wealth, Education, Foreign Travel, Leadership & Parent-Child Charts.'],
+            ['/muhurat-calendar', 'Cat D (46–60)', 'Calendar & Muhurat', 'All-India Festivals, Ekadashi, Sankranti, 24h Planetary Hora, Tara/Chandra Bala, Vivah & Naamkaran.'],
+            ['/kundli-matching', 'Cat E (61–70)', 'Relationship & Family Vault', 'Ashtakoot exceptions, D1/D9 overlays, couple transits, offline Family Vault & Child Nakshatra.'],
+            ['/data-tools', 'Cat F (71–85)', 'Data, Sync & Bulk Tools', 'VSOP87 QA Validator, Luxon Historical TZ/DST, Offline IndexedDB Vault, Bulk CSV Batch Exporter.'],
+            ['/workspace', 'Cat G (86–100)', '3D Map, Notes & API v1', 'Three.js 3D Constellation Map, Knowledge Graph, Study Notes, Journal, Certification & Dev API.'],
+            ['/test-registry', 'QA Suite', '100-Feature Registry', 'Interactive catalog of all 100 advanced modules + live automated ephemeris verification.'],
+          ].map(([href, code, title, desc]) => (
+            <Link
+              key={href}
+              to={href}
+              className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 hover:border-[#C59326] transition-colors flex flex-col justify-between space-y-2"
+            >
+              <div>
+                <p className="text-[11px] font-mono font-semibold text-[#9A6D12] dark:text-amber-400">{code}</p>
+                <h3 className="font-display text-lg font-bold text-[#0D1B3E] dark:text-white mt-0.5">{title}</h3>
+                <p className="text-xs text-[#4A5568] dark:text-slate-400 mt-1.5 leading-relaxed">{desc}</p>
+              </div>
+              <span className="text-xs font-semibold text-[#9A6D12] dark:text-amber-400 pt-1">Open Module →</span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       {/* 3. Instant Free Kundli Generator */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0C1226] p-6 sm:p-8">
+        <div className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-6 sm:p-8">
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6 pb-4 border-b border-slate-200 dark:border-slate-800">
             <div>
               <h2 className="font-display text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white">

@@ -5,6 +5,6 @@ pages_build_output_dir = "dist"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "goo_astrology_db"
-database_id = "REPLACE_WITH_YOUR_CLOUDFLARE_D1_DATABASE_ID"
+database_name = "u-tv"
+database_id = "16127660-ca97-4972-a7d1-97e9620b1271"
 migrations_dir = "migrations"

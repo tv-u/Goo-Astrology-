@@ -30,6 +30,13 @@ const NotFoundPage = lazy(() => import('./pages/BlogAndInfoPages').then((m) => (
 const AuthPage = lazy(() => import('./pages/AccountAndAdminPages').then((m) => ({ default: m.AuthPage })));
 const UserDashboardPage = lazy(() => import('./pages/AccountAndAdminPages').then((m) => ({ default: m.UserDashboardPage })));
 const AdminDashboardPage = lazy(() => import('./pages/AccountAndAdminPages').then((m) => ({ default: m.AdminDashboardPage })));
+const ResearchEnginePage = lazy(() => import('./pages/ResearchEnginePage').then((m) => ({ default: m.ResearchEnginePage })));
+const PlanetaryIntelligencePage = lazy(() => import('./pages/PlanetaryIntelligencePage').then((m) => ({ default: m.PlanetaryIntelligencePage })));
+const LifeAnalysisPage = lazy(() => import('./pages/LifeAnalysisPage').then((m) => ({ default: m.LifeAnalysisPage })));
+const MuhuratCalendarPage = lazy(() => import('./pages/MuhuratCalendarPage').then((m) => ({ default: m.MuhuratCalendarPage })));
+const DataToolsPage = lazy(() => import('./pages/DataToolsPage').then((m) => ({ default: m.DataToolsPage })));
+const WorkspacePage = lazy(() => import('./pages/WorkspaceAndRegistryPages').then((m) => ({ default: m.WorkspacePage })));
+const TestRegistryPage = lazy(() => import('./pages/WorkspaceAndRegistryPages').then((m) => ({ default: m.TestRegistryPage })));
 
 function PageFallback() {
   return (
@@ -98,6 +105,13 @@ export default function App() {
               <Route path="/profile" element={<UserDashboardPage initialTab="profile" />} />
               <Route path="/saved-reports" element={<UserDashboardPage initialTab="reports" />} />
               <Route path="/admin" element={<AdminDashboardPage />} />
+              <Route path="/research" element={<ResearchEnginePage />} />
+              <Route path="/planetary-intelligence" element={<PlanetaryIntelligencePage />} />
+              <Route path="/life-analysis" element={<LifeAnalysisPage />} />
+              <Route path="/muhurat-calendar" element={<MuhuratCalendarPage />} />
+              <Route path="/data-tools" element={<DataToolsPage />} />
+              <Route path="/workspace" element={<WorkspacePage />} />
+              <Route path="/test-registry" element={<TestRegistryPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>

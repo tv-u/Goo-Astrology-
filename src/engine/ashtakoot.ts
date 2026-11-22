@@ -299,3 +299,81 @@ export function calculateAshtakoot(bride: KundliResult, groom: KundliResult): As
     },
   };
 }
+
+export function analyzeDetailedCompatibilityExtras(
+  bride: KundliResult,
+  groom: KundliResult,
+  transitSky: KundliResult
+) {
+  const bMoon = bride.planets.find((p) => p.id === 'Moon')!;
+  const gMoon = groom.planets.find((p) => p.id === 'Moon')!;
+  const bMars = bride.planets.find((p) => p.id === 'Mars')!;
+  const gMars = groom.planets.find((p) => p.id === 'Mars')!;
+  const bJup = bride.planets.find((p) => p.id === 'Jupiter')!;
+  const gJup = groom.planets.find((p) => p.id === 'Jupiter')!;
+
+  const nadiExceptions = [
+    {
+      rule: 'Same Rashi, Different Nakshatra',
+      applies: bride.moonSignIndex === groom.moonSignIndex && bMoon.nakshatraIndex !== gMoon.nakshatraIndex,
+    },
+    {
+      rule: 'Same Nakshatra, Different Pada',
+      applies: bMoon.nakshatraIndex === gMoon.nakshatraIndex && bMoon.pada !== gMoon.pada,
+    },
+    {
+      rule: 'Friendly Moon Sign Lords (Graha Maitri >= 4)',
+      applies: ZODIAC_SIGNS[bride.moonSignIndex].ruler === ZODIAC_SIGNS[groom.moonSignIndex].ruler,
+    },
+  ];
+
+  const bhakootExceptions = [
+    {
+      rule: 'Identical Moon Rashi Lord',
+      applies: ZODIAC_SIGNS[bride.moonSignIndex].ruler === ZODIAC_SIGNS[groom.moonSignIndex].ruler,
+    },
+    {
+      rule: 'Same Navamsa (D9) Moon Sign',
+      applies:
+        bride.divisionalCharts.find((d) => d.code === 'D9')?.placements.find((p) => p.id === 'Moon')?.signIndex ===
+        groom.divisionalCharts.find((d) => d.code === 'D9')?.placements.find((p) => p.id === 'Moon')?.signIndex,
+    },
+  ];
+
+  const manglikCancellations = [
+    {
+      rule: 'Mars in Own/Exalted Sign (Aries, Scorpio, Capricorn)',
+      applies: [0, 7, 9].includes(bMars.signIndex) || [0, 7, 9].includes(gMars.signIndex),
+    },
+    {
+      rule: 'Jupiter in Kendra (1, 4, 7, 10) or Conjunct/Aspecting Mars',
+      applies:
+        [1, 4, 7, 10].includes(bJup.house) ||
+        [1, 4, 7, 10].includes(gJup.house) ||
+        bJup.aspectsHouses.includes(bMars.house) ||
+        gJup.aspectsHouses.includes(gMars.house),
+    },
+    {
+      rule: 'Mars in Movable Sign (Aries, Cancer, Libra, Capricorn)',
+      applies: [0, 3, 6, 9].includes(bMars.signIndex) || [0, 3, 6, 9].includes(gMars.signIndex),
+    },
+  ];
+
+  const coupleTransits = ['Sun', 'Moon', 'Mars', 'Mercury', 'Jupiter', 'Venus', 'Saturn'].map((pid) => {
+    const tp = transitSky.planets.find((p) => p.id === pid)!;
+    return {
+      planet: pid,
+      transitSign: tp.signName,
+      brideMoonHouse: ((tp.signIndex - bride.moonSignIndex + 12) % 12) + 1,
+      groomMoonHouse: ((tp.signIndex - groom.moonSignIndex + 12) % 12) + 1,
+    };
+  });
+
+  return {
+    nadiExceptions,
+    bhakootExceptions,
+    manglikCancellations,
+    coupleTransits,
+  };
+}
+

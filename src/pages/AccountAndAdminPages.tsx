@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Download, LogOut, Shield, Trash2 } from 'lucide-react';
+import { CheckCircle2, Database, Download, LogOut, RefreshCw, RotateCcw, Shield, ShieldAlert, Trash2 } from 'lucide-react';
 import { SeoHead } from '../components/SeoHead';
 import { useApp } from '../context/AppContext';
 import { BirthInputForm } from '../components/BirthInputForm';
@@ -324,7 +324,7 @@ export const AdminDashboardPage: React.FC = () => {
   const [bootstrapStatus, setBootstrapStatus] = useState<{ needsAdminSetup: boolean; envPasscodeActive: boolean } | null>(null);
   const [setupForm, setSetupForm] = useState({ email: '', password: '', fullName: '', envPasscode: '' });
   const [setupError, setSetupError] = useState('');
-  const [adminTab, setAdminTab] = useState<'analytics' | 'users' | 'astrologers' | 'articles' | 'settings' | 'logs'>('analytics');
+  const [adminTab, setAdminTab] = useState<'analytics' | 'sync' | 'features' | 'users' | 'astrologers' | 'articles' | 'settings' | 'logs'>('analytics');
   const [metrics, setMetrics] = useState<Record<string, number>>({});
   const [usersList, setUsersList] = useState<{ id: number; email: string; full_name: string; role: string }[]>([]);
   const [astrosList, setAstrosList] = useState<{ id: number; display_name: string; specializations: string; approval_status: string }[]>([]);
@@ -332,6 +332,14 @@ export const AdminDashboardPage: React.FC = () => {
   const [settingsMap, setSettingsMap] = useState<Record<string, string>>({});
   const [adsList, setAdsList] = useState<{ placement: string; enabled: number; network_code: string; ad_slot_id: string }[]>([]);
   const [auditLogs, setAuditLogs] = useState<{ id: number; action: string; target: string; details: string; created_at: string }[]>([]);
+  const [syncOverview, setSyncOverview] = useState<{
+    sources: { slug: string; name: string; category: string; license: string; refresh_interval_hours: number }[];
+    datasets: { dataset_key: string; title: string; version: string; previous_version: string | null; checksum_sha256: string; record_count: number; integrity_status: string; updated_at: string }[];
+    history: { id: number; dataset_key: string; action: string; status: string; version: string; message: string; created_at: string }[];
+  }>({ sources: [], datasets: [], history: [] });
+  const [featureFlags, setFeatureFlags] = useState<{ feature_code: string; title: string; category: string; route: string; enabled: number }[]>([]);
+  const [featureCatFilter, setFeatureCatFilter] = useState('All');
+  const [syncBusy, setSyncBusy] = useState(false);
   const [newArticle, setNewArticle] = useState({ title: '', hindiTitle: '', category: 'Kundli Guides', excerpt: '', body: '' });
   const [notice, setNotice] = useState('');
 
@@ -345,12 +353,14 @@ export const AdminDashboardPage: React.FC = () => {
   const loadAdminData = async () => {
     if (!token || user?.role !== 'admin') return;
     const headers = { Authorization: `Bearer ${token}` };
-    const [ov, us, as, ar, st] = await Promise.all([
+    const [ov, us, as, ar, st, sy, ff] = await Promise.all([
       fetch('/api/admin/overview', { headers }).then((r) => r.json()),
       fetch('/api/admin/users', { headers }).then((r) => r.json()),
       fetch('/api/admin/astrologers', { headers }).then((r) => r.json()),
       fetch('/api/admin/articles', { headers }).then((r) => r.json()),
       fetch('/api/admin/settings', { headers }).then((r) => r.json()),
+      fetch('/api/sync/status').then((r) => r.json()),
+      fetch('/api/features').then((r) => r.json()),
     ]);
     setMetrics(ov.metrics || {});
     setUsersList(us.users || []);
@@ -361,6 +371,12 @@ export const AdminDashboardPage: React.FC = () => {
     setSettingsMap(sMap);
     setAdsList(st.ads || []);
     setAuditLogs(st.auditLogs || []);
+    setSyncOverview({
+      sources: sy.sources || [],
+      datasets: sy.datasets || [],
+      history: sy.history || [],
+    });
+    setFeatureFlags(ff.features || []);
   };
 
   useEffect(() => {
@@ -455,31 +471,234 @@ export const AdminDashboardPage: React.FC = () => {
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
-        {(['analytics', 'users', 'astrologers', 'articles', 'settings', 'logs'] as const).map((k) => (
+      <div className="flex flex-wrap gap-2 border-b border-[#E7DEC8] dark:border-slate-800 pb-3">
+        {(['analytics', 'sync', 'features', 'users', 'astrologers', 'articles', 'settings', 'logs'] as const).map((k) => (
           <button
             key={k}
             type="button"
             onClick={() => setAdminTab(k)}
             className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg capitalize cursor-pointer ${
-              adminTab === k ? 'bg-amber-500 text-slate-950' : 'border border-slate-200 dark:border-slate-800'
+              adminTab === k
+                ? 'bg-[#C59326] text-white'
+                : 'border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226]'
             }`}
           >
-            {k}
+            {k === 'sync' ? 'Open Data Sync' : k === 'features' ? `Feature Flags (${featureFlags.length})` : k}
           </button>
         ))}
       </div>
 
-      {notice && <p className="text-xs font-medium text-amber-500">{notice}</p>}
+      {notice && (
+        <p className="text-xs font-medium px-3.5 py-2 rounded-lg bg-[#F7F2E4] dark:bg-amber-500/10 border border-[#E7DEC8] dark:border-amber-500/30 text-[#9A6D12] dark:text-amber-300">
+          {notice}
+        </p>
+      )}
 
       {adminTab === 'analytics' && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {Object.entries(metrics).map(([k, v]) => (
-            <div key={k} className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0C1226] p-4">
-              <p className="text-xs text-slate-500 capitalize">{k.replace(/([A-Z])/g, ' $1')}</p>
-              <p className="text-2xl font-mono font-bold tabular-nums mt-1">{v}</p>
+            <div key={k} className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-4">
+              <p className="text-xs text-[#6B5B3E] dark:text-slate-400 capitalize">{k.replace(/([A-Z])/g, ' $1')}</p>
+              <p className="text-2xl font-mono font-bold tabular-nums mt-1 text-[#0D1B3E] dark:text-white">{v}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {adminTab === 'sync' && (
+        <div className="space-y-6">
+          <div className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h2 className="font-display text-xl font-bold text-[#0D1B3E] dark:text-white flex items-center gap-2">
+                <Database className="w-5 h-5 text-[#C59326]" />
+                Automated Open-Data Sync &amp; Recovery Engine (F-79..82)
+              </h2>
+              <p className="text-xs text-[#4A5568] dark:text-slate-400 mt-0.5">
+                Cloudflare D1 binding target: <span className="font-mono font-semibold">u-tv</span> · SHA-256 verified MIT/CC0 open datasets with atomic rollback snapshots.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={syncBusy}
+                onClick={async () => {
+                  setSyncBusy(true);
+                  const resp = await fetch('/api/admin/sync/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({}),
+                  });
+                  const data = await resp.json();
+                  if (resp.ok && data.overview) {
+                    setSyncOverview(data.overview);
+                    setNotice(`Synced ${(data.results || []).length} open datasets cleanly.`);
+                  }
+                  setSyncBusy(false);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#C59326] text-white cursor-pointer"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${syncBusy ? 'animate-spin' : ''}`} />
+                Run Sync All
+              </button>
+              <button
+                type="button"
+                disabled={syncBusy}
+                onClick={async () => {
+                  setSyncBusy(true);
+                  const resp = await fetch('/api/admin/sync/run', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ simulateCorruptPayload: true }),
+                  });
+                  const data = await resp.json();
+                  if (resp.ok && data.overview) {
+                    setSyncOverview(data.overview);
+                    setNotice('Simulated corrupt batch rejected by Zod validator; cached verified versions retained safely.');
+                  }
+                  setSyncBusy(false);
+                }}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg border border-amber-500/50 text-amber-700 dark:text-amber-300 cursor-pointer"
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                Simulate Corrupt Batch Recovery
+              </button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 overflow-x-auto">
+            <h3 className="font-display text-lg font-bold mb-3">Managed Open Datasets &amp; Snapshots</h3>
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-[#E7DEC8] dark:border-slate-800 text-left text-[#6B5B3E] dark:text-slate-400">
+                  <th className="py-2 pr-3">Dataset Key</th>
+                  <th className="py-2 pr-3">Version</th>
+                  <th className="py-2 pr-3">Records</th>
+                  <th className="py-2 pr-3">SHA-256 Prefix</th>
+                  <th className="py-2 pr-3">Status</th>
+                  <th className="py-2 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F0E8D6] dark:divide-slate-800">
+                {syncOverview.datasets.map((ds) => (
+                  <tr key={ds.dataset_key}>
+                    <td className="py-2.5 pr-3 font-semibold">{ds.title} <span className="block font-mono text-[10px] text-slate-400">{ds.dataset_key}</span></td>
+                    <td className="py-2.5 pr-3 font-mono">{ds.version}{ds.previous_version ? ` (prev: ${ds.previous_version})` : ''}</td>
+                    <td className="py-2.5 pr-3 font-mono tabular-nums">{ds.record_count}</td>
+                    <td className="py-2.5 pr-3 font-mono text-[11px] text-slate-500">{ds.checksum_sha256.slice(0, 14)}…</td>
+                    <td className="py-2.5 pr-3 font-mono">
+                      <span className={ds.integrity_status === 'verified' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}>
+                        {ds.integrity_status}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-right space-x-2">
+                      <button
+                        type="button"
+                        disabled={!ds.previous_version || syncBusy}
+                        onClick={async () => {
+                          setSyncBusy(true);
+                          const resp = await fetch('/api/admin/sync/rollback', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ datasetKey: ds.dataset_key }),
+                          });
+                          const data = await resp.json();
+                          if (resp.ok && data.overview) {
+                            setSyncOverview(data.overview);
+                            setNotice(`Rolled back ${ds.dataset_key} to v${data.restoredVersion}.`);
+                          } else {
+                            setNotice(data.error || 'Rollback unavailable.');
+                          }
+                          setSyncBusy(false);
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded border border-[#E7DEC8] dark:border-slate-700 disabled:opacity-40 cursor-pointer"
+                      >
+                        <RotateCcw className="w-3 h-3" /> Rollback
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 overflow-x-auto">
+            <h3 className="font-display text-lg font-bold mb-3">Sync Execution History</h3>
+            <table className="w-full text-xs font-mono">
+              <thead>
+                <tr className="border-b border-[#E7DEC8] dark:border-slate-800 text-left text-slate-500">
+                  <th className="py-2 pr-3">Time</th><th className="py-2 pr-3">Dataset</th><th className="py-2 pr-3">Action</th><th className="py-2 pr-3">Version</th><th className="py-2">Message</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#F0E8D6] dark:divide-slate-800">
+                {syncOverview.history.slice(0, 15).map((h) => (
+                  <tr key={h.id}>
+                    <td className="py-2 pr-3 text-slate-500">{h.created_at}</td>
+                    <td className="py-2 pr-3">{h.dataset_key}</td>
+                    <td className="py-2 pr-3">{h.action} ({h.status})</td>
+                    <td className="py-2 pr-3">{h.version}</td>
+                    <td className="py-2">{h.message}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {adminTab === 'features' && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl font-bold text-[#0D1B3E] dark:text-white">
+                100 Advanced Feature Flags Governance
+              </h2>
+              <p className="text-xs text-[#4A5568] dark:text-slate-400">
+                Enable or inspect any Category A–G module dynamically across the platform.
+              </p>
+            </div>
+            <select
+              value={featureCatFilter}
+              onChange={(e) => setFeatureCatFilter(e.target.value)}
+              className="px-3 py-1.5 text-xs rounded-lg border border-[#E7DEC8] dark:border-slate-700 bg-white dark:bg-[#0D1326]"
+            >
+              <option value="All">All Categories ({featureFlags.length})</option>
+              {Array.from(new Set(featureFlags.map((f) => f.category))).map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {featureFlags
+              .filter((f) => featureCatFilter === 'All' || f.category === featureCatFilter)
+              .map((f) => (
+                <div key={f.feature_code} className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-4 flex items-center justify-between gap-3 text-xs">
+                  <div className="min-w-0">
+                    <p className="font-mono text-[10px] text-[#9A6D12] dark:text-amber-400">{f.feature_code} · {f.category}</p>
+                    <p className="font-semibold text-[#0D1B3E] dark:text-white truncate">{f.title}</p>
+                    <p className="font-mono text-[10px] text-slate-400">{f.route}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await fetch(`/api/admin/features/${f.feature_code}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ enabled: !f.enabled }),
+                      });
+                      setNotice(`Feature ${f.feature_code} ${!f.enabled ? 'enabled' : 'disabled'}.`);
+                      loadAdminData();
+                    }}
+                    className={`inline-flex items-center gap-1 px-2.5 py-1 rounded font-semibold shrink-0 cursor-pointer ${
+                      f.enabled ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    <CheckCircle2 className="w-3 h-3" />
+                    {f.enabled ? 'ON' : 'OFF'}
+                  </button>
+                </div>
+              ))}
+          </div>
         </div>
       )}
 

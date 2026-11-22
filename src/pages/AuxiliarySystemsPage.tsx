@@ -332,7 +332,14 @@ export const FinderToolPage: React.FC<{ finderType: 'nakshatra' | 'rashi' | 'lag
 export const ToolsDirectoryPage: React.FC = () => {
   const tools = [
     ['/free-kundli', 'Free Janam Kundli', 'D1–D60 charts, planetary degrees, aspects & Dasha'],
-    ['/kundli-matching', 'Kundli Matching', '36-point Ashtakoot Gun Milan & Manglik check'],
+    ['/research', 'Advanced Vedic Research (A-01..15)', 'Shadbala, Ashtakavarga, Bhava Chalit, Sripati, KP & Jaimini'],
+    ['/planetary-intelligence', 'Planetary Intelligence (B-16..30)', 'Graha Yuddha, Stations, Eclipses, Conjunctions & Shadows'],
+    ['/life-analysis', 'Life & Personal Analysis (C-31..45)', 'Career, Wealth, Foreign Travel, Leadership & Parent-Child'],
+    ['/muhurat-calendar', 'Festivals & Muhurat (D-46..60)', '24h Planetary Hora, Ekadashi, Vivah, Tara/Chandra Bala'],
+    ['/kundli-matching', 'Kundli Matching & Family (E-61..70)', '36-pt Gun Milan, Cancellations, Overlays, Family Vault & PDF'],
+    ['/data-tools', 'Data, Sync & Batch Tools (F-71..85)', 'Ephemeris QA, Historical TZ, Offline Storage & CSV Batch'],
+    ['/workspace', '3D Map, Notes & Dev API (G-86..100)', 'Three.js Constellation Map, Knowledge Graph, Journal & SDK'],
+    ['/test-registry', '100-Feature Registry & QA', 'Browse all 100 modules and inspect functional verification'],
     ['/manglik-calculator', 'Manglik Calculator', 'Kuja Dosha check with classical cancellation rules'],
     ['/sade-sati', 'Sade Sati Calculator', 'Live Saturn transit phases & Dhaiya checker'],
     ['/nakshatra-finder', 'Nakshatra Calculator', 'Exact Moon Nakshatra, Pada & naming syllable'],
@@ -348,29 +355,27 @@ export const ToolsDirectoryPage: React.FC = () => {
     ['/transits', 'Planetary Transit Calculator', 'Live sidereal positions, speeds & retrogrades'],
     ['/dasha', 'Dasha Calculator', '120-year Vimshottari Mahadasha & Antardasha'],
     ['/lucky-number', 'Lucky Number Calculator', 'Numerological core & lucky digits finder'],
-    ['/marriage-compatibility', 'Marriage Compatibility', 'Full Gun Milan & Manglik compatibility PDF'],
     ['/baby-names', 'Baby Name Finder', 'Curated Sanskrit & Hindi names with meanings'],
-    ['/baby-names', 'Baby Name by Rashi', 'Filter baby names by Moon Rashi'],
-    ['/baby-names', 'Baby Name by Nakshatra', 'Filter baby names by birth Nakshatra'],
     ['/horoscope', 'Zodiac Compatibility', 'Elemental compatibility & 12-sign horoscopes'],
-    ['/birth-chart', 'Birth Chart Generator', 'North, South & East Indian chart renderer'],
+    ['/vastu', 'Vastu Shastra Analyzer', '8-direction elemental compass & placement guide'],
+    ['/kp-astrology', 'KP Astrology & Prashna', '249 Sub-Lord significators & live Horary sky'],
+    ['/lal-kitab', 'Lal Kitab & Classical Remedies', 'Kaalpurush house view, Chinese Zodiac & Gemstones'],
     ['/festival-calendar', 'Festival Calendar', 'Upcoming Ekadashi, Purnima, Amavasya & Sankranti'],
-    ['/hindu-calendar', 'Hindu Calendar', 'Vikram Samvat, Shaka Samvat & lunar months'],
     ['/sunrise-sunset', 'Sunrise & Sunset Calculator', 'Astronomical rise/set for global cities'],
   ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       <SeoHead
-        title="All 26 Free Vedic Astrology Calculators & Tools"
-        description="Complete directory of free Vedic astrology calculators: Kundli, Ashtakoot Matching, Panchang, Dasha, Numerology, Tarot, Baby Names, and Transits."
+        title="All Free Vedic Astrology Calculators, Research Engines & Tools"
+        description="Complete directory of 150 free Vedic astrology calculators & modules: Kundli, Shadbala, Ashtakavarga, Eclipses, Matching, Panchang, 3D Sky Map, Tarot, and Batch CSV."
       />
       <div>
-        <h1 className="font-display text-3xl sm:text-4xl font-bold text-slate-900 dark:text-white">
-          Free Astrology Tools Directory (26 Calculators)
+        <h1 className="font-display text-3xl sm:text-4xl font-bold text-[#0D1B3E] dark:text-white">
+          Free Astrology Ecosystem Directory ({tools.length} Suites · 150 Features)
         </h1>
-        <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-          Every tool uses live astronomical calculations or curated datasets with transparent methodology.
+        <p className="text-sm text-[#4A5568] dark:text-slate-400 mt-1">
+          Every calculator runs offline or locally using validated VSOP87 astronomical math and open datasets.
         </p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -378,10 +383,10 @@ export const ToolsDirectoryPage: React.FC = () => {
           <Link
             key={name}
             to={path}
-            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 hover:border-amber-500 transition-colors"
+            className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 hover:border-[#C59326] transition-colors"
           >
-            <h2 className="font-semibold text-slate-900 dark:text-white">{name}</h2>
-            <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">{desc}</p>
+            <h2 className="font-semibold text-[#0D1B3E] dark:text-white">{name}</h2>
+            <p className="text-xs text-[#4A5568] dark:text-slate-400 mt-1">{desc}</p>
           </Link>
         ))}
       </div>
