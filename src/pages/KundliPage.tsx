@@ -1,8 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Bookmark, Download, Printer, Sparkles } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { BirthInputForm } from '../components/BirthInputForm';
 import { KundliChartSvg, type ChartStyle } from '../components/KundliChartSvg';
+import { MonetagDirectLinkCta } from '../components/AdSlot';
+import {
+  KundliShareCardAndQr,
+  VoiceReadAloudButton,
+  decodeBirthUrlParam,
+  trackAnalyticsEvent,
+} from '../components/MonetagAndSeoExtras';
 import { SeoHead } from '../components/SeoHead';
 import { useApp } from '../context/AppContext';
 import { calculateKundli, type BirthInput } from '../engine/ephemeris';
@@ -10,6 +17,7 @@ import { analyzeDoshasAndYogas } from '../engine/doshaYoga';
 
 export const KundliPage: React.FC = () => {
   const { activeKundli, setActiveKundli, user, token, t } = useApp();
+  const [searchParams] = useSearchParams();
   const [chartStyle, setChartStyle] = useState<ChartStyle>('north');
   const [selectedDivisionalCode, setSelectedDivisionalCode] = useState('D1');
   const [activeTab, setActiveTab] = useState<'charts' | 'planets' | 'dasha' | 'dosha' | 'yoga'>('charts');
@@ -18,6 +26,14 @@ export const KundliPage: React.FC = () => {
   const [saveMessage, setSaveMessage] = useState('');
 
   useEffect(() => {
+    const bToken = searchParams.get('b');
+    if (bToken) {
+      const decoded = decodeBirthUrlParam(bToken);
+      if (decoded) {
+        setActiveKundli(calculateKundli(decoded));
+        return;
+      }
+    }
     if (!activeKundli) {
       const defaultKundli = calculateKundli({
         name: 'Aarav Sharma',
@@ -32,12 +48,13 @@ export const KundliPage: React.FC = () => {
       });
       setActiveKundli(defaultKundli);
     }
-  }, [activeKundli, setActiveKundli]);
+  }, [activeKundli, searchParams, setActiveKundli]);
 
   const handleGenerate = async (input: BirthInput) => {
     const res = calculateKundli(input);
     setActiveKundli(res);
     setSaveMessage('');
+    trackAnalyticsEvent('/free-kundli', 'generate_kundli', 'calculator_run');
     if (token) {
       fetch('/api/kundli', {
         method: 'POST',
@@ -175,6 +192,9 @@ export const KundliPage: React.FC = () => {
               <Download className="w-3.5 h-3.5" />
               JSON
             </button>
+            <VoiceReadAloudButton
+              text={`Janam Kundli summary for ${activeKundli.input.name}. Lagna is ${activeKundli.ascendant.signName}. Moon Rashi is ${activeKundli.planets[1].signName} in ${activeKundli.planets[1].nakshatraName} Pada ${activeKundli.planets[1].pada}. Current Mahadasha is ${activeKundli.currentMahadasha?.lord} and Antardasha is ${activeKundli.currentAntardasha?.lord}.`}
+            />
             <Link
               to="/ai-astrologer"
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg bg-amber-500 text-slate-950"
@@ -238,6 +258,9 @@ export const KundliPage: React.FC = () => {
               </p>
             </div>
           </div>
+
+          <KundliShareCardAndQr kundli={activeKundli} />
+          <MonetagDirectLinkCta placement="kundli_top" compact />
 
           {/* Navigation Tabs */}
           <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">

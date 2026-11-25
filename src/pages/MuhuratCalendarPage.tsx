@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Calendar, Clock, Sparkles } from 'lucide-react';
+import { Calendar, Clock, Download, Sparkles } from 'lucide-react';
 import { SeoHead } from '../components/SeoHead';
 import { INDIAN_CITIES } from '../data/cities';
 import { NAKSHATRAS, ZODIAC_SIGNS } from '../engine/constants';
@@ -8,6 +8,8 @@ import {
   calculateSpecialMuhuratChecks,
   generateAstronomicalCalendarYear,
 } from '../engine/lifeAndMuhurat';
+import { buildAstrologyCalendarIcs } from '../engine/prashnaAndVarshaphal';
+import { downloadTextFile } from '../utils/reportExporter';
 
 export function MuhuratCalendarPage() {
   const [dateStr, setDateStr] = useState(new Date().toISOString().slice(0, 10));
@@ -143,6 +145,20 @@ export function MuhuratCalendarPage() {
                 <option value="Maharashtra / West">Maharashtra / West</option>
                 <option value="East India">East / South India</option>
               </select>
+              <button
+                type="button"
+                onClick={() =>
+                  downloadTextFile(
+                    `goo-astrology-calendar-${year}.ics`,
+                    buildAstrologyCalendarIcs(filteredEvents, year),
+                    'text/calendar;charset=utf-8'
+                  )
+                }
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-[#0D1B3E] text-white dark:bg-amber-500 dark:text-slate-950 font-semibold text-xs cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export .ICS Calendar
+              </button>
             </div>
           </div>
 

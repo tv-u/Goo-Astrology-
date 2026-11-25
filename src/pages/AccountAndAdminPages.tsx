@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CheckCircle2, Database, Download, LogOut, RefreshCw, RotateCcw, Shield, ShieldAlert, Trash2 } from 'lucide-react';
 import { SeoHead } from '../components/SeoHead';
-import { useApp } from '../context/AppContext';
+import { useApp, type Language } from '../context/AppContext';
+import { SUPPORTED_LANGUAGES } from '../data/locales';
 import { BirthInputForm } from '../components/BirthInputForm';
 import type { BirthInput } from '../engine/ephemeris';
 
@@ -80,25 +81,45 @@ export const AuthPage: React.FC<{ mode: 'login' | 'register' }> = ({ mode }) => 
 };
 
 export const UserDashboardPage: React.FC<{ initialTab?: 'overview' | 'profile' | 'reports' }> = ({ initialTab = 'overview' }) => {
-  const { user, token, logoutSession, setActiveKundli, t } = useApp();
+  const { user, token, loginSession, logoutSession, setActiveKundli, setLanguage, t } = useApp();
   const navigate = useNavigate();
   const [tab, setTab] = useState(initialTab);
   const [birthProfiles, setBirthProfiles] = useState<{ id: number; full_name: string; birth_date: string; birth_time: string; place_name: string; latitude: number; longitude: number; timezone_offset_minutes: number }[]>([]);
   const [savedReadings, setSavedReadings] = useState<{ id: number; reading_type: string; title: string; created_at: string; payload_json: string }[]>([]);
   const [consultations, setConsultations] = useState<{ id: number; astrologer_name: string; mode: string; status: string; scheduled_for: string }[]>([]);
   const [showAddBirth, setShowAddBirth] = useState(false);
+  const [profileForm, setProfileForm] = useState({
+    fullName: user?.fullName || '',
+    phone: '',
+    city: '',
+    bio: '',
+    preferredLanguage: user?.preferredLanguage || 'en',
+    privacyPublicChart: false,
+  });
   const [msg, setMsg] = useState('');
 
   const loadDashboard = async () => {
     if (!token) return;
-    const resp = await fetch('/api/user/dashboard', {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    if (resp.ok) {
-      const data = await resp.json();
+    const [dashResp, meResp] = await Promise.all([
+      fetch('/api/user/dashboard', { headers: { Authorization: `Bearer ${token}` } }),
+      fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } }),
+    ]);
+    if (dashResp.ok) {
+      const data = await dashResp.json();
       setBirthProfiles(data.birthProfiles || []);
       setSavedReadings(data.savedReadings || []);
       setConsultations(data.consultations || []);
+    }
+    if (meResp.ok) {
+      const me = await meResp.json();
+      setProfileForm({
+        fullName: me.user?.fullName || '',
+        phone: me.profile?.phone || '',
+        city: me.profile?.city || '',
+        bio: me.profile?.bio || '',
+        preferredLanguage: me.user?.preferredLanguage || 'en',
+        privacyPublicChart: Boolean(me.profile?.privacy_public_chart),
+      });
     }
   };
 
@@ -248,6 +269,23 @@ export const UserDashboardPage: React.FC<{ initialTab?: 'overview' | 'profile' |
                   >
                     Open Kundli →
                   </button>
+                  <button
+                    type="button"
+                    aria-label={`Delete birth profile ${bp.full_name}`}
+                    onClick={async () => {
+                      const del = await fetch(`/api/user/birth-profiles/${bp.id}`, {
+                        method: 'DELETE',
+                        headers: { Authorization: `Bearer ${token}` },
+                      });
+                      if (del.ok) {
+                        setMsg(`Deleted profile "${bp.full_name}".`);
+                        loadDashboard();
+                      }
+                    }}
+                    className="ml-auto inline-flex items-center gap-1 text-xs text-slate-400 hover:text-rose-500 cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                  </button>
                 </div>
               </div>
             ))}
@@ -303,16 +341,111 @@ export const UserDashboardPage: React.FC<{ initialTab?: 'overview' | 'profile' |
       )}
 
       {tab === 'profile' && (
-        <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0C1226] p-6 space-y-4">
-          <h2 className="font-display text-2xl font-bold">Account &amp; Privacy Controls</h2>
-          <p className="text-xs text-slate-500">Download your complete JSON archive or permanently delete your account and saved records.</p>
-          <button
-            type="button"
-            onClick={handleDeleteAccount}
-            className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-rose-600 text-white cursor-pointer"
+        <div className="space-y-6">
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setMsg('');
+              const resp = await fetch('/api/user/profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify(profileForm),
+              });
+              if (resp.ok) {
+                if (user && token) {
+                  loginSession(token, {
+                    ...user,
+                    fullName: profileForm.fullName || user.fullName,
+                    preferredLanguage: profileForm.preferredLanguage,
+                  });
+                }
+                setLanguage(profileForm.preferredLanguage as Language);
+                setMsg('Profile & language preferences saved.');
+              } else {
+                const err = await resp.json().catch(() => ({}));
+                setMsg(err.error || 'Could not save profile.');
+              }
+            }}
+            className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0C1226] p-6 space-y-4"
           >
-            <Trash2 className="w-3.5 h-3.5" /> Permanently Delete My Account
-          </button>
+            <h2 className="font-display text-2xl font-bold">Profile &amp; 12-Language Preferences</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div>
+                <label className="block text-slate-500 mb-1">Full Name</label>
+                <input
+                  required
+                  type="text"
+                  value={profileForm.fullName}
+                  onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-500 mb-1">Preferred Language (12 Indian Languages)</label>
+                <select
+                  value={profileForm.preferredLanguage}
+                  onChange={(e) => setProfileForm({ ...profileForm, preferredLanguage: e.target.value })}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0D1326]"
+                >
+                  {SUPPORTED_LANGUAGES.map((l) => (
+                    <option key={l.code} value={l.code}>{l.nativeName} ({l.name})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-slate-500 mb-1">Phone (Optional)</label>
+                <input
+                  type="text"
+                  value={profileForm.phone}
+                  onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                  placeholder="+91 ..."
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-slate-500 mb-1">Home City</label>
+                <input
+                  type="text"
+                  value={profileForm.city}
+                  onChange={(e) => setProfileForm({ ...profileForm, city: e.target.value })}
+                  placeholder="Varanasi, Delhi, Mumbai..."
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent"
+                />
+              </div>
+            </div>
+            <div className="text-xs">
+              <label className="block text-slate-500 mb-1">Vedic Study Bio / Notes</label>
+              <textarea
+                rows={3}
+                value={profileForm.bio}
+                onChange={(e) => setProfileForm({ ...profileForm, bio: e.target.value })}
+                className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-700 bg-transparent"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={profileForm.privacyPublicChart}
+                onChange={(e) => setProfileForm({ ...profileForm, privacyPublicChart: e.target.checked })}
+              />
+              Allow public sharing of saved sample charts (private birth records remain protected by default)
+            </label>
+            <button type="submit" className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 text-slate-950 cursor-pointer">
+              Save Profile Settings
+            </button>
+          </form>
+
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0C1226] p-6 space-y-4">
+            <h2 className="font-display text-2xl font-bold">Account &amp; Privacy Controls</h2>
+            <p className="text-xs text-slate-500">Download your complete JSON archive or permanently delete your account and saved records.</p>
+            <button
+              type="button"
+              onClick={handleDeleteAccount}
+              className="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-rose-600 text-white cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Permanently Delete My Account
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -320,7 +453,7 @@ export const UserDashboardPage: React.FC<{ initialTab?: 'overview' | 'profile' |
 };
 
 export const AdminDashboardPage: React.FC = () => {
-  const { user, token, loginSession } = useApp();
+  const { user, token, loginSession, refreshPublicSettings } = useApp();
   const [bootstrapStatus, setBootstrapStatus] = useState<{ needsAdminSetup: boolean; envPasscodeActive: boolean } | null>(null);
   const [setupForm, setSetupForm] = useState({ email: '', password: '', fullName: '', envPasscode: '' });
   const [setupError, setSetupError] = useState('');
@@ -341,6 +474,13 @@ export const AdminDashboardPage: React.FC = () => {
   const [featureCatFilter, setFeatureCatFilter] = useState('All');
   const [syncBusy, setSyncBusy] = useState(false);
   const [newArticle, setNewArticle] = useState({ title: '', hindiTitle: '', category: 'Kundli Guides', excerpt: '', body: '' });
+  const [trafficStats, setTrafficStats] = useState<{
+    byType: { event_type: string; count: number }[];
+    topRoutes: { route: string; views: number }[];
+    topFeatures: { feature_key: string; runs: number }[];
+  }>({ byType: [], topRoutes: [], topFeatures: [] });
+  const [indexNowKeyInput, setIndexNowKeyInput] = useState('');
+  const [indexNowResult, setIndexNowResult] = useState('');
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
@@ -353,7 +493,7 @@ export const AdminDashboardPage: React.FC = () => {
   const loadAdminData = async () => {
     if (!token || user?.role !== 'admin') return;
     const headers = { Authorization: `Bearer ${token}` };
-    const [ov, us, as, ar, st, sy, ff] = await Promise.all([
+    const [ov, us, as, ar, st, sy, ff, tr] = await Promise.all([
       fetch('/api/admin/overview', { headers }).then((r) => r.json()),
       fetch('/api/admin/users', { headers }).then((r) => r.json()),
       fetch('/api/admin/astrologers', { headers }).then((r) => r.json()),
@@ -361,6 +501,7 @@ export const AdminDashboardPage: React.FC = () => {
       fetch('/api/admin/settings', { headers }).then((r) => r.json()),
       fetch('/api/sync/status').then((r) => r.json()),
       fetch('/api/features').then((r) => r.json()),
+      fetch('/api/admin/analytics-traffic', { headers }).then((r) => (r.ok ? r.json() : { byType: [], topRoutes: [], topFeatures: [] })),
     ]);
     setMetrics(ov.metrics || {});
     setUsersList(us.users || []);
@@ -369,6 +510,7 @@ export const AdminDashboardPage: React.FC = () => {
     const sMap: Record<string, string> = {};
     for (const row of st.settings || []) sMap[row.key] = row.value;
     setSettingsMap(sMap);
+    if (sMap.indexnow_key) setIndexNowKeyInput(sMap.indexnow_key);
     setAdsList(st.ads || []);
     setAuditLogs(st.auditLogs || []);
     setSyncOverview({
@@ -377,6 +519,11 @@ export const AdminDashboardPage: React.FC = () => {
       history: sy.history || [],
     });
     setFeatureFlags(ff.features || []);
+    setTrafficStats({
+      byType: tr.byType || [],
+      topRoutes: tr.topRoutes || [],
+      topFeatures: tr.topFeatures || [],
+    });
   };
 
   useEffect(() => {
@@ -495,13 +642,51 @@ export const AdminDashboardPage: React.FC = () => {
       )}
 
       {adminTab === 'analytics' && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          {Object.entries(metrics).map(([k, v]) => (
-            <div key={k} className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-4">
-              <p className="text-xs text-[#6B5B3E] dark:text-slate-400 capitalize">{k.replace(/([A-Z])/g, ' $1')}</p>
-              <p className="text-2xl font-mono font-bold tabular-nums mt-1 text-[#0D1B3E] dark:text-white">{v}</p>
+        <div className="space-y-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {Object.entries(metrics).map(([k, v]) => (
+              <div key={k} className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-4">
+                <p className="text-xs text-[#6B5B3E] dark:text-slate-400 capitalize">{k.replace(/([A-Z])/g, ' $1')}</p>
+                <p className="text-2xl font-mono font-bold tabular-nums mt-1 text-[#0D1B3E] dark:text-white">{v}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            <div className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 space-y-2 text-xs">
+              <h2 className="font-display text-lg font-bold">Live Traffic &amp; Monetag Events (#60)</h2>
+              {trafficStats.byType.length === 0 ? (
+                <p className="text-slate-500">No tracked events yet.</p>
+              ) : (
+                trafficStats.byType.map((ev) => (
+                  <div key={ev.event_type} className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                    <span className="font-mono">{ev.event_type}</span>
+                    <span className="font-mono font-bold text-[#9A6D12] dark:text-amber-400">{ev.count}</span>
+                  </div>
+                ))
+              )}
             </div>
-          ))}
+
+            <div className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 space-y-2 text-xs">
+              <h2 className="font-display text-lg font-bold">Top Visited Routes</h2>
+              {trafficStats.topRoutes.map((r) => (
+                <div key={r.route} className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="font-mono truncate">{r.route}</span>
+                  <span className="font-mono font-bold">{r.views}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 space-y-2 text-xs">
+              <h2 className="font-display text-lg font-bold">Top Calculators &amp; Ad Clicks</h2>
+              {trafficStats.topFeatures.map((f) => (
+                <div key={f.feature_key} className="flex justify-between py-1 border-b border-slate-100 dark:border-slate-800">
+                  <span className="font-mono truncate">{f.feature_key}</span>
+                  <span className="font-mono font-bold">{f.runs}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -650,10 +835,10 @@ export const AdminDashboardPage: React.FC = () => {
           <div className="rounded-xl border border-[#E7DEC8] dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-display text-xl font-bold text-[#0D1B3E] dark:text-white">
-                100 Advanced Feature Flags Governance
+                350 Platform Module Feature Flags Governance
               </h2>
               <p className="text-xs text-[#4A5568] dark:text-slate-400">
-                Enable or inspect any Category A–G module dynamically across the platform.
+                Enable, audit, or inspect all Core + Category A–Q Vedic modules dynamically across the platform.
               </p>
             </div>
             <select
@@ -840,56 +1025,206 @@ export const AdminDashboardPage: React.FC = () => {
       )}
 
       {adminTab === 'settings' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 space-y-3">
-            <h2 className="font-display text-xl font-bold">Website &amp; SEO Settings</h2>
-            {Object.entries(settingsMap).map(([k, v]) => (
-              <div key={k} className="flex items-center justify-between gap-3 text-xs">
-                <span className="font-mono text-slate-500">{k}</span>
-                <input
-                  value={v}
-                  onChange={(e) => setSettingsMap({ ...settingsMap, [k]: e.target.value })}
-                  className="px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-transparent w-56"
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold">Website, SEO &amp; Monetag Site Verification</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Enter your real Monetag (&ldquo;Montage Ads&rdquo;) site verification token, MultiTag Zone ID, and IAB <a href="/ads.txt" target="_blank" rel="noreferrer" className="text-amber-500 underline">/ads.txt</a> entries.
+              </p>
+            </div>
+            <div className="space-y-2.5">
+              {Object.entries(settingsMap)
+                .filter(([k]) => k !== 'ads_txt_content')
+                .map(([k, v]) => (
+                  <div key={k} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <span className="font-mono text-slate-500">{k}</span>
+                    <input
+                      value={v}
+                      placeholder={
+                        k === 'monetag_verification_meta'
+                          ? 'Monetag meta token (hex/alphanumeric)'
+                          : k === 'monetag_multitag_zone_id'
+                            ? 'Numeric MultiTag Zone ID (e.g. 9123456)'
+                            : ''
+                      }
+                      onChange={(e) => setSettingsMap({ ...settingsMap, [k]: e.target.value })}
+                      className="px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-transparent sm:w-64"
+                    />
+                  </div>
+                ))}
+              <div className="text-xs space-y-1 pt-1">
+                <label className="block font-mono text-slate-500">ads_txt_content (served live at /ads.txt)</label>
+                <textarea
+                  rows={3}
+                  value={settingsMap.ads_txt_content || ''}
+                  onChange={(e) => setSettingsMap({ ...settingsMap, ads_txt_content: e.target.value })}
+                  placeholder="monetag.com, YOUR_PUBLISHER_ID, DIRECT"
+                  className="w-full px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-transparent font-mono"
                 />
               </div>
-            ))}
-            <button
-              type="button"
-              onClick={async () => {
-                await fetch('/api/admin/settings', {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                  body: JSON.stringify({ settings: settingsMap }),
-                });
-                setNotice('Website settings saved.');
-              }}
-              className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 text-slate-950 cursor-pointer"
-            >
-              Save Settings
-            </button>
-          </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  const resp = await fetch('/api/admin/settings', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ settings: settingsMap }),
+                  });
+                  const data = await resp.json().catch(() => ({}));
+                  if (resp.ok) {
+                    setNotice('Website, SEO & Monetag settings saved and synced.');
+                    await refreshPublicSettings();
+                    loadAdminData();
+                  } else {
+                    setNotice(data.error || 'Could not save settings.');
+                  }
+                }}
+                className="px-4 py-2 text-xs font-semibold rounded-lg bg-amber-500 text-slate-950 cursor-pointer"
+              >
+                Save Website &amp; Monetag Settings
+              </button>
+            </div>
 
-          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 space-y-3">
-            <h2 className="font-display text-xl font-bold">Advertisement Placements (Disabled by Default)</h2>
-            {adsList.map((ad) => (
-              <div key={ad.placement} className="flex items-center justify-between text-xs py-1.5 border-b border-slate-100 dark:border-slate-800">
-                <span className="capitalize font-semibold">{ad.placement} Banner</span>
+            <div className="pt-4 border-t border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+              <p className="font-semibold">IndexNow Instant Indexing Ping (#50)</p>
+              <p className="text-slate-500">
+                Active RSS: <a href="/rss.xml" target="_blank" rel="noreferrer" className="text-amber-500 underline">/rss.xml</a> · News Sitemap: <a href="/news-sitemap.xml" target="_blank" rel="noreferrer" className="text-amber-500 underline">/news-sitemap.xml</a>
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={indexNowKeyInput}
+                  onChange={(e) => setIndexNowKeyInput(e.target.value)}
+                  placeholder="IndexNow Key (8–128 chars)"
+                  className="flex-1 px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-transparent font-mono"
+                />
                 <button
                   type="button"
                   onClick={async () => {
-                    await fetch('/api/admin/ads', {
-                      method: 'PUT',
+                    const resp = await fetch('/api/admin/indexnow', {
+                      method: 'POST',
                       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                      body: JSON.stringify({ placement: ad.placement, enabled: !ad.enabled, networkCode: ad.network_code, adSlotId: ad.ad_slot_id }),
+                      body: JSON.stringify({ indexnowKey: indexNowKeyInput }),
                     });
-                    loadAdminData();
+                    const data = await resp.json().catch(() => ({}));
+                    setIndexNowResult(JSON.stringify(data, null, 2));
                   }}
-                  className={`px-2.5 py-1 rounded font-semibold cursor-pointer ${ad.enabled ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-800'}`}
+                  className="px-3 py-1.5 rounded bg-[#0D1B3E] dark:bg-amber-500 text-white dark:text-slate-950 font-semibold cursor-pointer"
                 >
-                  {ad.enabled ? 'Enabled' : 'Disabled'}
+                  Ping IndexNow
                 </button>
               </div>
-            ))}
+              {indexNowResult && (
+                <pre className="p-2.5 rounded bg-slate-100 dark:bg-slate-900 font-mono text-[10px] overflow-x-auto">{indexNowResult}</pre>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0C1226] p-5 space-y-4">
+            <div>
+              <h2 className="font-display text-xl font-bold">Monetag (&ldquo;Montage Ads&rdquo;) &amp; Multi-Network Slots</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Zero dummy placeholders: slots remain hidden until a real network and valid Zone/Slot ID are saved and enabled.
+              </p>
+            </div>
+            <div className="space-y-3">
+              {adsList.map((ad) => (
+                <div key={ad.placement} className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 space-y-2.5 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="capitalize font-semibold text-sm">{ad.placement} Placement</span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const resp = await fetch('/api/admin/ads', {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                          body: JSON.stringify({
+                            placement: ad.placement,
+                            enabled: !ad.enabled,
+                            networkCode: ad.network_code,
+                            adSlotId: ad.ad_slot_id,
+                          }),
+                        });
+                        const data = await resp.json().catch(() => ({}));
+                        if (resp.ok) {
+                          setNotice(`${ad.placement} ad ${!ad.enabled ? 'enabled' : 'disabled'}.`);
+                          await refreshPublicSettings();
+                          loadAdminData();
+                        } else {
+                          setNotice(data.error || `Could not update ${ad.placement} ad.`);
+                        }
+                      }}
+                      className={`px-2.5 py-1 rounded font-semibold cursor-pointer ${
+                        ad.enabled ? 'bg-emerald-600 text-white' : 'bg-slate-200 dark:bg-slate-800'
+                      }`}
+                    >
+                      {ad.enabled ? 'Enabled' : 'Disabled'}
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <select
+                      aria-label={`${ad.placement} ad network`}
+                      value={ad.network_code || ''}
+                      onChange={(e) =>
+                        setAdsList((prev) =>
+                          prev.map((item) =>
+                            item.placement === ad.placement ? { ...item, network_code: e.target.value } : item
+                          )
+                        )
+                      }
+                      className="px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0D1326]"
+                    >
+                      <option value="">-- Select Network --</option>
+                      <option value="monetag">Monetag (Zone ID / CDN URL)</option>
+                      <option value="adsense">Google AdSense (ca-pub:slot)</option>
+                      <option value="adsterra">Adsterra (Key / CDN URL)</option>
+                    </select>
+                    <input
+                      aria-label={`${ad.placement} Zone or Slot ID`}
+                      value={ad.ad_slot_id || ''}
+                      placeholder="Zone ID (e.g. 9123456) or Slot ID"
+                      onChange={(e) =>
+                        setAdsList((prev) =>
+                          prev.map((item) =>
+                            item.placement === ad.placement ? { ...item, ad_slot_id: e.target.value } : item
+                          )
+                        )
+                      }
+                      className="px-2.5 py-1.5 rounded border border-slate-300 dark:border-slate-700 bg-transparent font-mono"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const resp = await fetch('/api/admin/ads', {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({
+                          placement: ad.placement,
+                          enabled: Boolean(ad.enabled),
+                          networkCode: ad.network_code,
+                          adSlotId: ad.ad_slot_id,
+                        }),
+                      });
+                      const data = await resp.json().catch(() => ({}));
+                      if (resp.ok) {
+                        setNotice(`Saved ${ad.placement} placement configuration.`);
+                        await refreshPublicSettings();
+                        loadAdminData();
+                      } else {
+                        setNotice(data.error || `Rejected ${ad.placement} ad config.`);
+                      }
+                    }}
+                    className="px-3 py-1 rounded border border-amber-500/60 text-amber-600 dark:text-amber-300 font-semibold cursor-pointer"
+                  >
+                    Save Slot Config
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}

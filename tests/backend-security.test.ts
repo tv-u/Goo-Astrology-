@@ -94,6 +94,7 @@ test('Public API health, Kundli defaults, Location Gazetteer, Sitemap & 350 feat
   assert.equal(sitemapRes.status, 200);
   const xml = await sitemapRes.text();
   assert.ok(xml.includes('/india-locations'));
+  assert.ok(xml.includes('/prashna-varshaphal'));
   assert.ok(xml.includes('/academy'));
   assert.ok(xml.includes('hreflang="sa-IN"'));
   assert.ok(xml.includes('hreflang="ta-IN"'));
@@ -208,6 +209,61 @@ test('Authentication, JWT integrity, 12-Language Registration & Single-Use Admin
   assert.equal(corruptSyncRes.status, 200);
   const syncJson = (await corruptSyncRes.json()) as { results: Array<{ status: string }> };
   assert.equal(syncJson.results[0]?.status, 'recovered_fallback');
+
+  // Admin Ad Manager rejects untrusted URL/XSS and accepts verified Monetag Zone ID + ads.txt
+  const badAdRes = await fetch(`${baseUrl}/api/admin/ads`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminAuth.token}` },
+    body: JSON.stringify({
+      placement: 'homepage',
+      enabled: true,
+      networkCode: 'monetag',
+      adSlotId: 'https://untrusted-xss.example.org/ad.js',
+    }),
+  });
+  assert.equal(badAdRes.status, 400);
+
+  const goodAdRes = await fetch(`${baseUrl}/api/admin/ads`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminAuth.token}` },
+    body: JSON.stringify({
+      placement: 'homepage',
+      enabled: true,
+      networkCode: 'monetag',
+      adSlotId: '9123456',
+    }),
+  });
+  assert.equal(goodAdRes.status, 200);
+
+  const settingsRes = await fetch(`${baseUrl}/api/admin/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminAuth.token}` },
+    body: JSON.stringify({
+      settings: {
+        monetag_verification_meta: 'monetagverifytoken9988',
+        monetag_multitag_zone_id: '9123457',
+        ads_txt_content: 'monetag.com, 987654, DIRECT',
+      },
+    }),
+  });
+  assert.equal(settingsRes.status, 200);
+
+  const pubSettingsRes = await fetch(`${baseUrl}/api/settings/public`);
+  assert.equal(pubSettingsRes.status, 200);
+  const pubJson = (await pubSettingsRes.json()) as {
+    settings: Record<string, string>;
+    ads: Array<{ placement: string; enabled: number; network_code: string; ad_slot_id: string }>;
+  };
+  assert.equal(pubJson.settings.monetag_verification_meta, 'monetagverifytoken9988');
+  assert.equal(pubJson.settings.monetag_multitag_zone_id, '9123457');
+  const hpAd = pubJson.ads.find((a) => a.placement === 'homepage');
+  assert.equal(hpAd?.enabled, 1);
+  assert.equal(hpAd?.network_code, 'monetag');
+  assert.equal(hpAd?.ad_slot_id, '9123456');
+
+  const adsTxtRes = await fetch(`${baseUrl}/ads.txt`);
+  assert.equal(adsTxtRes.status, 200);
+  assert.ok((await adsTxtRes.text()).includes('monetag.com, 987654, DIRECT'));
 });
 
 test('User Data Isolation, Safe Profile Upsert, AI Multilingual Fallback & Self-Delete', async () => {
@@ -293,6 +349,17 @@ test('User Data Isolation, Safe Profile Upsert, AI Multilingual Fallback & Self-
   assert.equal(aiJson.engine, 'local-vedic-kb');
   assert.ok(aiJson.reply.length > 20);
 
+  // Owner can delete their own birth profile cleanly
+  const ownerDelProf = await fetch(`${baseUrl}/api/user/birth-profiles/${createdProf.id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${loginA.token}` },
+  });
+  assert.equal(ownerDelProf.status, 200);
+  const dashAfterDel = (await (await fetch(`${baseUrl}/api/user/dashboard`, {
+    headers: { Authorization: `Bearer ${loginA.token}` },
+  })).json()) as { birthProfiles: Array<{ id: number }> };
+  assert.equal(dashAfterDel.birthProfiles.some((p) => p.id === createdProf.id), false);
+
   // User A exports data and self-deletes account
   const exportRes = await fetch(`${baseUrl}/api/user/export`, {
     headers: { Authorization: `Bearer ${loginA.token}` },
@@ -304,3 +371,126 @@ test('User Data Isolation, Safe Profile Upsert, AI Multilingual Fallback & Self-
   });
   assert.equal(delRes.status, 200);
 });
+
+test('60-Feature Growth APIs: Seeded Monetag Direct Link, RSS/News Sitemap, Analytics Tracking & Admin IndexNow', async () => {
+  // Public settings must expose active user Monetag Direct Link https://uplcm.com/4/12282219
+  const pubRes = await fetch(`${baseUrl}/api/settings/public`);
+  assert.equal(pubRes.status, 200);
+  const pubData = (await pubRes.json()) as { settings: Record<string, string> };
+  assert.equal(pubData.settings.monetag_direct_link_url, 'https://uplcm.com/4/12282219');
+  assert.equal(pubData.settings.monetag_direct_link_enabled, 'true');
+
+  // RSS 2.0 & News Sitemap + expanded City Panchang Sitemap
+  const rssRes = await fetch(`${baseUrl}/rss.xml`);
+  assert.equal(rssRes.status, 200);
+  assert.ok((await rssRes.text()).includes('<rss version="2.0">'));
+
+  const newsRes = await fetch(`${baseUrl}/news-sitemap.xml`);
+  assert.equal(newsRes.status, 200);
+  assert.ok((await newsRes.text()).includes('sitemap-news'));
+
+  const smRes = await fetch(`${baseUrl}/sitemap.xml`);
+  const smXml = await smRes.text();
+  assert.ok(smXml.includes('/vedic-suite'));
+  assert.ok(smXml.includes('/panchang/new-delhi'));
+  assert.ok(smXml.includes('/rahu-kaal/new-delhi'));
+
+  // Anonymous analytics tracking
+  const trk1 = await fetch(`${baseUrl}/api/analytics/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ route: '/vedic-suite', featureKey: 'monetag_direct_global', eventType: 'ad_click' }),
+  });
+  assert.equal(trk1.status, 201);
+
+  const trkBad = await fetch(`${baseUrl}/api/analytics/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ route: '/x', eventType: 'evil_event' }),
+  });
+  assert.equal(trkBad.status, 400);
+
+  // Admin can view aggregated traffic stats & reject invalid Monetag direct link updates
+  const adminLogin = await fetch(`${baseUrl}/api/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'admin@example.com', password: 'AdminStrongPassword123!' }),
+  });
+  const adminToken = ((await adminLogin.json()) as { token: string }).token;
+
+  const trafficRes = await fetch(`${baseUrl}/api/admin/analytics-traffic`, {
+    headers: { Authorization: `Bearer ${adminToken}` },
+  });
+  assert.equal(trafficRes.status, 200);
+  const trafficJson = (await trafficRes.json()) as { byType: Array<{ event_type: string; count: number }> };
+  assert.ok(trafficJson.byType.some((r) => r.event_type === 'ad_click' && r.count >= 1));
+
+  const badDirectRes = await fetch(`${baseUrl}/api/admin/settings`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({ settings: { monetag_direct_link_url: 'https://malicious.example.org/phish' } }),
+  });
+  assert.equal(badDirectRes.status, 400);
+
+  // IndexNow validates missing/invalid key with 400 cleanly
+  const idxBad = await fetch(`${baseUrl}/api/admin/indexnow`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+    body: JSON.stringify({ indexnowKey: 'short' }),
+  });
+  assert.equal(idxBad.status, 400);
+});
+
+test('Newsletter Subscription, Validated Feedback & New Portal Sitemap Routes', async () => {
+  // Invalid email rejected
+  const badSub = await fetch(`${baseUrl}/api/newsletter/subscribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'not-an-email' }),
+  });
+  assert.equal(badSub.status, 400);
+
+  // Valid subscription persisted
+  const goodSub = await fetch(`${baseUrl}/api/newsletter/subscribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'Subscriber@Example.com', preferredLanguage: 'hi', sourceRoute: '/horoscope' }),
+  });
+  assert.equal(goodSub.status, 201);
+  const subJson = (await goodSub.json()) as { ok: boolean; alreadySubscribed: boolean };
+  assert.equal(subJson.ok, true);
+  assert.equal(subJson.alreadySubscribed, false);
+
+  // Duplicate email updates cleanly without 500 error
+  const dupSub = await fetch(`${baseUrl}/api/newsletter/subscribe`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: 'subscriber@example.com', preferredLanguage: 'ta' }),
+  });
+  assert.equal(dupSub.status, 200);
+  const dupJson = (await dupSub.json()) as { ok: boolean; alreadySubscribed: boolean };
+  assert.equal(dupJson.alreadySubscribed, true);
+
+  // Feedback email validation + persistence
+  const badFb = await fetch(`${baseUrl}/api/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Test', email: 'bad', message: 'Hello world' }),
+  });
+  assert.equal(badFb.status, 400);
+
+  const goodFb = await fetch(`${baseUrl}/api/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Aarav', email: 'aarav@example.com', subject: 'Praise', message: 'Great Tamil Porutham tool!' }),
+  });
+  assert.equal(goodFb.status, 201);
+
+  // Sitemap includes all 4 new portals
+  const smXml = await (await fetch(`${baseUrl}/sitemap.xml`)).text();
+  assert.ok(smXml.includes('/spiritual-tools'));
+  assert.ok(smXml.includes('/healing-ayurveda'));
+  assert.ok(smXml.includes('/tamil-porutham'));
+  assert.ok(smXml.includes('/brihat-kundli'));
+});
+

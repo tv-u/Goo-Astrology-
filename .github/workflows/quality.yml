@@ -35,8 +35,11 @@ jobs:
         run: |
           test -f migrations/0001_init.sql
           test -f migrations/0002_ecosystem.sql
+          test -f migrations/0003_advanced_60.sql
+          test -f migrations/0004_portal_features.sql
           grep -q "16127660-ca97-4972-a7d1-97e9620b1271" wrangler.toml
           ! grep -rn "window\.alert(" src/
+          ! grep -rn "window\.open(" src/
 
       - name: Build production PWA bundle (artifact check only, no deploy)
         run: npm run build

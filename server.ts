@@ -29,6 +29,14 @@ import { getUpcomingEclipses } from './src/engine/planetaryIntelligence';
 import { ZODIAC_SIGNS } from './src/engine/constants';
 import { SUPPORTED_LANGUAGES, type IndianLanguageCode } from './src/data/locales';
 import { INDIA_STATES_AND_UTS, resolveIndiaLocation } from './src/data/indiaLocations';
+import { CITIES_DATASET } from './src/data/cities';
+import {
+  isValidMonetagDirectUrl,
+  isValidMonetagMetaToken,
+  isValidMonetagZoneId,
+  sanitizeAdsTxtContent,
+  validateAdPlacementConfig,
+} from './src/utils/adConfig';
 
 initializeDatabase();
 initializeSyncDatasets();
@@ -101,29 +109,64 @@ app.get('/api/health', (_req, res) => {
   });
 });
 
-// Public site settings & ad flags
+// Public site settings & ad flags (merges optional Monetag env configuration when DB keys are blank)
 app.get('/api/settings/public', (_req, res) => {
   const rows = db.prepare('SELECT key, value FROM website_settings').all() as { key: string; value: string }[];
   const settings: Record<string, string> = {};
   for (const r of rows) settings[r.key] = r.value;
+
+  const envMeta = (process.env.MONETAG_META_TOKEN || '').trim();
+  const envZone = (process.env.MONETAG_MULTITAG_ZONE_ID || '').trim();
+  const envDirect = (process.env.MONETAG_DIRECT_LINK_URL || '').trim();
+  if (!settings.monetag_verification_meta && envMeta && isValidMonetagMetaToken(envMeta)) {
+    settings.monetag_verification_meta = envMeta;
+  }
+  if (!settings.monetag_multitag_zone_id && envZone && isValidMonetagZoneId(envZone)) {
+    settings.monetag_multitag_zone_id = envZone;
+  }
+  if (!settings.monetag_direct_link_url && envDirect && isValidMonetagDirectUrl(envDirect)) {
+    settings.monetag_direct_link_url = envDirect;
+  }
+
   const ads = db.prepare('SELECT placement, enabled, network_code, ad_slot_id FROM advertisements').all();
   res.json({ settings, ads });
 });
 
-// Dynamic Multilingual XML Sitemap (12 Indian Languages hreflang + fixed permalinks)
+// Dynamic IAB ads.txt endpoint for Monetag / AdSense / Adsterra publisher authorization
+app.get('/ads.txt', (_req, res) => {
+  const row = db
+    .prepare("SELECT value FROM website_settings WHERE key = 'ads_txt_content'")
+    .get() as { value: string } | undefined;
+  const clean = sanitizeAdsTxtContent(row?.value || '');
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.send(
+    clean.length > 0
+      ? `${clean}\n`
+      : '# GOO ASTROLOGY ads.txt - configure authorized publisher lines in Admin Control Panel -> Settings -> Monetag & Ads.\n'
+  );
+});
+
+// Dynamic Multilingual XML Sitemap (12 Indian Languages hreflang + fixed permalinks + top Indian City Panchang/Rahu Kaal)
 app.get('/sitemap.xml', (req, res) => {
   const baseUrl = process.env.APP_URL && process.env.APP_URL !== 'MY_APP_URL'
     ? process.env.APP_URL.replace(/\/$/, '')
     : `${req.protocol}://${req.get('host')}`;
+  const topCitySlugs = CITIES_DATASET.filter((c) => c.country === 'India').slice(0, 30).map((c) => c.id);
   const staticPaths = [
     '/', '/free-kundli', '/kundli-matching', '/panchang', '/muhurat', '/muhurat-calendar',
+    '/prashna-varshaphal', '/vedic-suite', '/muhurat-explorer', '/numerology-vastu-suite', '/sudarshan-comparator',
     '/research', '/planetary-intelligence', '/life-analysis', '/data-tools', '/workspace', '/test-registry',
     '/india-locations', '/academy', '/report-studio', '/verification-center',
+    '/spiritual-tools', '/healing-ayurveda', '/tamil-porutham', '/brihat-kundli',
     '/horoscope', '/dasha', '/dosha', '/yoga', '/tarot', '/numerology',
     '/vastu', '/lal-kitab', '/kp-astrology', '/baby-names', '/tools',
     '/astrologers', '/consultation', '/ai-astrologer', '/blog',
     '/about', '/contact', '/privacy-policy', '/terms', '/disclaimer', '/sitemap',
     ...ZODIAC_SIGNS.map((z) => `/zodiac/${z.name.toLowerCase()}`),
+    ...topCitySlugs.map((slug) => `/panchang/${slug}`),
+    ...topCitySlugs.map((slug) => `/rahu-kaal/${slug}`),
+    ...['a', 'k', 'm', 'p', 'r', 's', 'v'].map((ch) => `/baby-names/${ch}`),
   ];
   const articles = db
     .prepare("SELECT slug, published_at FROM articles WHERE status = 'published'")
@@ -149,6 +192,68 @@ app.get('/sitemap.xml', (req, res) => {
   res.send(
     `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">${urls}</urlset>`
   );
+});
+
+// Feature #49: Auto-Generated RSS 2.0 Feed & Google News Sitemap
+app.get('/rss.xml', (req, res) => {
+  const baseUrl = process.env.APP_URL && process.env.APP_URL !== 'MY_APP_URL'
+    ? process.env.APP_URL.replace(/\/$/, '')
+    : `${req.protocol}://${req.get('host')}`;
+  const articles = db
+    .prepare("SELECT slug, title, excerpt, published_at FROM articles WHERE status = 'published' ORDER BY published_at DESC LIMIT 30")
+    .all() as { slug: string; title: string; excerpt: string; published_at: string }[];
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const items = articles
+    .map(
+      (a) =>
+        `<item><title>${esc(a.title)}</title><link>${baseUrl}/articles/${a.slug}</link><guid>${baseUrl}/articles/${a.slug}</guid><description>${esc(a.excerpt)}</description><pubDate>${new Date(a.published_at).toUTCString()}</pubDate></item>`
+    )
+    .join('');
+  res.setHeader('Content-Type', 'application/rss+xml; charset=utf-8');
+  res.send(
+    `<?xml version="1.0" encoding="UTF-8"?><rss version="2.0"><channel><title>GOO ASTROLOGY UNLIMITED FREE</title><link>${baseUrl}</link><description>Indian Vedic Astrology, Kundli, Panchang & Research Guides</description>${items}</channel></rss>`
+  );
+});
+
+app.get('/news-sitemap.xml', (req, res) => {
+  const baseUrl = process.env.APP_URL && process.env.APP_URL !== 'MY_APP_URL'
+    ? process.env.APP_URL.replace(/\/$/, '')
+    : `${req.protocol}://${req.get('host')}`;
+  const articles = db
+    .prepare("SELECT slug, title, published_at FROM articles WHERE status = 'published' ORDER BY published_at DESC LIMIT 30")
+    .all() as { slug: string; title: string; published_at: string }[];
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const entries = articles
+    .map(
+      (a) =>
+        `<url><loc>${baseUrl}/articles/${a.slug}</loc><news:news><news:publication><news:name>GOO ASTROLOGY UNLIMITED FREE</news:name><news:language>en</news:language></news:publication><news:publication_date>${a.published_at}</news:publication_date><news:title>${esc(a.title)}</news:title></news:news></url>`
+    )
+    .join('');
+  res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+  res.send(
+    `<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:news="http://www.google.com/schemas/sitemap-news/0.9">${entries}</urlset>`
+  );
+});
+
+// Feature #60: Privacy-First Real-Time Traffic, Calculator & Ad Impression Analytics (Zero PII)
+app.post('/api/analytics/track', rateLimit(180, 60_000), (req, res) => {
+  const parsed = z
+    .object({
+      route: z.string().trim().min(1).max(160),
+      featureKey: z.string().trim().max(80).default(''),
+      eventType: z.enum(['page_view', 'calculator_run', 'ad_impression', 'ad_click']),
+    })
+    .safeParse(req.body || {});
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid analytics payload.' });
+    return;
+  }
+  db.prepare('INSERT INTO analytics_events (route, feature_key, event_type) VALUES (?, ?, ?)').run(
+    parsed.data.route,
+    parsed.data.featureKey,
+    parsed.data.eventType
+  );
+  res.status(201).json({ ok: true });
 });
 
 // --- AUTHENTICATION ---
@@ -553,20 +658,59 @@ app.get('/api/articles', (_req, res) => {
   });
 });
 
-// --- FEEDBACK / CONTACT ---
+// --- FEEDBACK / CONTACT & NEWSLETTER ---
 app.post('/api/feedback', rateLimit(10, 60_000), (req, res) => {
-  const { name, email, subject, message } = req.body || {};
-  if (!name || !email || !message) {
-    res.status(400).json({ error: 'Name, email, and message are required.' });
+  const parsed = z
+    .object({
+      name: z.string().trim().min(1, 'Name is required').max(80),
+      email: z.string().trim().email('Valid email is required').max(120),
+      subject: z.string().trim().max(150).optional().default('General Inquiry'),
+      message: z.string().trim().min(3, 'Message is required').max(2000),
+    })
+    .safeParse(req.body || {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message || 'Valid name, email, and message are required.' });
     return;
   }
   db.prepare('INSERT INTO feedback (name, email, subject, message) VALUES (?, ?, ?, ?)').run(
-    String(name).slice(0, 80),
-    String(email).slice(0, 120),
-    String(subject || 'General Inquiry').slice(0, 150),
-    String(message).slice(0, 2000)
+    parsed.data.name,
+    parsed.data.email.toLowerCase(),
+    parsed.data.subject || 'General Inquiry',
+    parsed.data.message
   );
   res.status(201).json({ ok: true });
+});
+
+app.post('/api/newsletter/subscribe', rateLimit(15, 60_000), (req, res) => {
+  const parsed = z
+    .object({
+      email: z.string().trim().email('Please enter a valid email address.').max(140),
+      preferredLanguage: z.string().trim().max(8).optional().default('en'),
+      sourceRoute: z.string().trim().max(120).optional().default('/'),
+    })
+    .safeParse(req.body || {});
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.issues[0]?.message || 'Valid email is required.' });
+    return;
+  }
+  const normalizedEmail = parsed.data.email.toLowerCase();
+  const existing = db
+    .prepare('SELECT id FROM newsletter_subscribers WHERE email = ?')
+    .get(normalizedEmail) as { id: number } | undefined;
+
+  if (existing) {
+    db.prepare('UPDATE newsletter_subscribers SET preferred_language = ? WHERE id = ?').run(
+      parsed.data.preferredLanguage,
+      existing.id
+    );
+    res.status(200).json({ ok: true, alreadySubscribed: true });
+    return;
+  }
+
+  db.prepare(
+    'INSERT INTO newsletter_subscribers (email, preferred_language, source_route) VALUES (?, ?, ?)'
+  ).run(normalizedEmail, parsed.data.preferredLanguage, parsed.data.sourceRoute);
+  res.status(201).json({ ok: true, alreadySubscribed: false });
 });
 
 // --- ADMIN CONTROL PANEL ENDPOINTS ---
@@ -691,26 +835,136 @@ app.get('/api/admin/settings', requireAdmin, (_req, res) => {
 
 app.put('/api/admin/settings', requireAdmin, (req: AuthenticatedRequest, res) => {
   const updates = req.body?.settings;
-  if (updates && typeof updates === 'object') {
-    const stmt = db.prepare("INSERT OR REPLACE INTO website_settings (key, value, updated_at) VALUES (?, ?, datetime('now'))");
-    for (const [k, v] of Object.entries(updates)) {
-      stmt.run(String(k).slice(0, 64), String(v).slice(0, 500));
-    }
-    writeAuditLog(req.user!.id, 'ADMIN_SETTINGS_UPDATE', 'website_settings', Object.keys(updates).join(','), req.ip || '');
+  if (!updates || typeof updates !== 'object' || Array.isArray(updates)) {
+    res.status(400).json({ error: 'Valid settings object is required.' });
+    return;
   }
+
+  const sanitizedUpdates: Record<string, string> = {};
+  for (const [rawKey, rawVal] of Object.entries(updates)) {
+    const key = String(rawKey).trim().slice(0, 64);
+    const val = String(rawVal ?? '').trim();
+    if (!/^[a-z0-9_]+$/i.test(key)) {
+      res.status(400).json({ error: `Invalid settings key: ${key}` });
+      return;
+    }
+    if (key === 'monetag_verification_meta' && !isValidMonetagMetaToken(val)) {
+      res.status(400).json({ error: 'Monetag verification meta token must be 8–128 alphanumeric/dash characters.' });
+      return;
+    }
+    if (key === 'monetag_multitag_zone_id' && !isValidMonetagZoneId(val)) {
+      res.status(400).json({ error: 'Monetag MultiTag Zone ID must be 4–12 numeric digits.' });
+      return;
+    }
+    if (key === 'monetag_direct_link_url' && !isValidMonetagDirectUrl(val)) {
+      res.status(400).json({ error: 'Monetag Direct Link must be a verified HTTPS Monetag URL (e.g. https://uplcm.com/...).' });
+      return;
+    }
+    if (key === 'ads_txt_content') {
+      sanitizedUpdates[key] = sanitizeAdsTxtContent(val);
+    } else {
+      sanitizedUpdates[key] = val.slice(0, 500);
+    }
+  }
+
+  const stmt = db.prepare("INSERT OR REPLACE INTO website_settings (key, value, updated_at) VALUES (?, ?, datetime('now'))");
+  for (const [k, v] of Object.entries(sanitizedUpdates)) {
+    stmt.run(k, v);
+  }
+  writeAuditLog(req.user!.id, 'ADMIN_SETTINGS_UPDATE', 'website_settings', Object.keys(sanitizedUpdates).join(','), req.ip || '');
   res.json({ ok: true });
 });
 
+// Feature #50: IndexNow Instant Indexing Payload & Live Ping Endpoint
+app.post('/api/admin/indexnow', requireAdmin, async (req: AuthenticatedRequest, res) => {
+  const keyRow = db.prepare("SELECT value FROM website_settings WHERE key = 'indexnow_key'").get() as { value: string } | undefined;
+  const key = (req.body?.indexnowKey || keyRow?.value || '').trim();
+  const baseUrl = process.env.APP_URL && process.env.APP_URL !== 'MY_APP_URL'
+    ? process.env.APP_URL.replace(/\/$/, '')
+    : `${req.protocol}://${req.get('host')}`;
+  const urlList = Array.isArray(req.body?.urls) && req.body.urls.length > 0
+    ? req.body.urls.slice(0, 20).map((u: unknown) => String(u))
+    : [`${baseUrl}/`, `${baseUrl}/free-kundli`, `${baseUrl}/vedic-suite`, `${baseUrl}/muhurat-explorer`, `${baseUrl}/prashna-varshaphal`];
+
+  const host = new URL(baseUrl).hostname;
+  const payload = {
+    host,
+    key,
+    keyLocation: `${baseUrl}/${key}.txt`,
+    urlList,
+  };
+
+  if (!key || !/^[a-zA-Z0-9-]{8,128}$/.test(key)) {
+    res.status(400).json({
+      error: 'Configure a valid IndexNow key (8–128 alphanumeric/dash chars) in Settings before pinging.',
+      previewPayload: payload,
+    });
+    return;
+  }
+
+  try {
+    const pingRes = await fetch('https://api.indexnow.org/indexnow', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(payload),
+    });
+    writeAuditLog(req.user!.id, 'ADMIN_INDEXNOW_PING', host, `status=${pingRes.status}`, req.ip || '');
+    res.json({ ok: pingRes.ok, status: pingRes.status, payload });
+  } catch (err) {
+    res.json({ ok: false, status: 0, error: err instanceof Error ? err.message : 'Network error reaching IndexNow', payload });
+  }
+});
+
+// Feature #60: Admin Real-Time Traffic & Ad Impression Analytics Summary
+app.get('/api/admin/analytics-traffic', requireAdmin, (_req, res) => {
+  const byType = db
+    .prepare('SELECT event_type, COUNT(*) as count FROM analytics_events GROUP BY event_type')
+    .all() as Array<{ event_type: string; count: number }>;
+  const topRoutes = db
+    .prepare("SELECT route, COUNT(*) as views FROM analytics_events WHERE event_type = 'page_view' GROUP BY route ORDER BY views DESC LIMIT 12")
+    .all() as Array<{ route: string; views: number }>;
+  const topFeatures = db
+    .prepare("SELECT feature_key, COUNT(*) as runs FROM analytics_events WHERE feature_key != '' GROUP BY feature_key ORDER BY runs DESC LIMIT 12")
+    .all() as Array<{ feature_key: string; runs: number }>;
+  res.json({ byType, topRoutes, topFeatures });
+});
+
 app.put('/api/admin/ads', requireAdmin, (req: AuthenticatedRequest, res) => {
-  const { placement, enabled, networkCode, adSlotId } = req.body || {};
+  const parsed = z
+    .object({
+      placement: z.string(),
+      enabled: z.boolean().default(false),
+      networkCode: z.string().default(''),
+      adSlotId: z.string().default(''),
+    })
+    .safeParse(req.body || {});
+
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid ad configuration payload.' });
+    return;
+  }
+
+  const checked = validateAdPlacementConfig(parsed.data);
+  if (!checked.valid || !checked.sanitized) {
+    res.status(400).json({ error: checked.error || 'Unsafe or invalid ad configuration rejected.' });
+    return;
+  }
+
+  const { placement, enabled, networkCode, adSlotId } = checked.sanitized;
   db.prepare('UPDATE advertisements SET enabled = ?, network_code = ?, ad_slot_id = ? WHERE placement = ?').run(
     enabled ? 1 : 0,
-    String(networkCode || '').slice(0, 120),
-    String(adSlotId || '').slice(0, 120),
-    String(placement)
+    networkCode,
+    adSlotId,
+    placement
   );
-  writeAuditLog(req.user!.id, 'ADMIN_ADS_UPDATE', String(placement), `enabled=${Boolean(enabled)}`, req.ip || '');
-  res.json({ ok: true });
+  writeAuditLog(
+    req.user!.id,
+    'ADMIN_ADS_UPDATE',
+    placement,
+    `network=${networkCode || 'none'},enabled=${enabled}`,
+    req.ip || ''
+  );
+  res.json({ ok: true, placement, enabled, networkCode, adSlotId });
 });
 
 app.patch('/api/admin/feedback/:id', requireAdmin, (req: AuthenticatedRequest, res) => {
@@ -776,7 +1030,7 @@ app.post('/api/admin/sync/rollback', requireAdmin, (req: AuthenticatedRequest, r
   res.json({ ...outcome, overview: getSyncOverview() });
 });
 
-// --- FEATURE FLAGS (All 100 Advanced Features) ---
+// --- FEATURE FLAGS (All 350 Platform Modules) ---
 app.get('/api/features', (_req, res) => {
   const rows = db.prepare('SELECT feature_code, title, category, route, enabled FROM feature_flags ORDER BY feature_code ASC').all();
   res.json({ features: rows });

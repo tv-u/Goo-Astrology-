@@ -1,16 +1,18 @@
 import { useEffect } from 'react';
 import { SUPPORTED_LANGUAGES } from '../data/locales';
 import { useApp } from '../context/AppContext';
+import { isValidMonetagMetaToken } from '../utils/adConfig';
 
 interface SeoHeadProps {
   title: string;
   description: string;
   keywords?: string;
   canonicalPath?: string;
+  jsonLd?: Record<string, unknown> | Record<string, unknown>[];
 }
 
-export function SeoHead({ title, description, keywords, canonicalPath }: SeoHeadProps) {
-  const { language } = useApp();
+export function SeoHead({ title, description, keywords, canonicalPath, jsonLd }: SeoHeadProps) {
+  const { language, siteSettings } = useApp();
 
   useEffect(() => {
     const origin = window.location.origin;
@@ -38,6 +40,20 @@ export function SeoHead({ title, description, keywords, canonicalPath }: SeoHead
     setMeta('meta[property="og:description"]', 'property', 'og:description', description);
     setMeta('meta[property="og:url"]', 'property', 'og:url', canonicalUrl);
 
+    // Optional verified Monetag publisher verification meta tag
+    const monetagMeta = (siteSettings.monetag_verification_meta || '').trim();
+    if (monetagMeta && isValidMonetagMetaToken(monetagMeta)) {
+      setMeta('meta[name="monetag"]', 'name', 'monetag', monetagMeta);
+    } else {
+      document.querySelector('meta[name="monetag"]')?.remove();
+    }
+
+    // Optional Google Search Console verification meta tag
+    const gscMeta = (siteSettings.google_search_console_meta || '').trim();
+    if (gscMeta && /^[a-zA-Z0-9_-]{8,128}$/.test(gscMeta)) {
+      setMeta('meta[name="google-site-verification"]', 'name', 'google-site-verification', gscMeta);
+    }
+
     // Fixed Canonical Permalink
     let canonical = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
     if (!canonical) {
@@ -57,7 +73,41 @@ export function SeoHead({ title, description, keywords, canonicalPath }: SeoHead
       link.setAttribute('data-goo-hreflang', 'true');
       document.head.appendChild(link);
     }
-  }, [title, description, keywords, canonicalPath, language]);
+
+    // Structured JSON-LD Schema.org injection
+    document.querySelectorAll('script[data-goo-jsonld="true"]').forEach((node) => node.remove());
+    const schemas = jsonLd
+      ? Array.isArray(jsonLd)
+        ? jsonLd
+        : [jsonLd]
+      : [
+          {
+            '@context': 'https://schema.org',
+            '@type': 'SoftwareApplication',
+            name: `${title} | GOO ASTROLOGY UNLIMITED FREE`,
+            applicationCategory: 'LifestyleApplication',
+            operatingSystem: 'Web, PWA',
+            url: canonicalUrl,
+            offers: { '@type': 'Offer', price: '0', priceCurrency: 'INR' },
+          },
+        ];
+    for (const schemaObj of schemas) {
+      const script = document.createElement('script');
+      script.type = 'application/ld+json';
+      script.setAttribute('data-goo-jsonld', 'true');
+      script.textContent = JSON.stringify(schemaObj);
+      document.head.appendChild(script);
+    }
+  }, [
+    title,
+    description,
+    keywords,
+    canonicalPath,
+    language,
+    siteSettings.monetag_verification_meta,
+    siteSettings.google_search_console_meta,
+    jsonLd,
+  ]);
 
   return null;
 }

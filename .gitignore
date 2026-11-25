@@ -6,7 +6,8 @@ coverage/
 *.log
 .env*
 !.env.example
-data/*.db
-data/*.db-wal
-data/*.db-shm
-data/test_*.db*
+data/
+*.db
+*.db-wal
+*.db-shm
+*.db-journal

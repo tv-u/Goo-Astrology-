@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Calendar, Compass, HeartHandshake, Sparkles, Star } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { SeoHead } from '../components/SeoHead';
+import { AdSlot, MonetagDirectLinkCta } from '../components/AdSlot';
 import { BirthInputForm } from '../components/BirthInputForm';
 import { ZODIAC_SIGNS } from '../engine/constants';
 import { calculateKundli, type BirthInput } from '../engine/ephemeris';
@@ -67,7 +68,7 @@ export const HomePage: React.FC = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 lg:py-16 grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
           <div className="lg:col-span-7 flex flex-col justify-center space-y-6">
             <p className="text-xs font-medium tracking-wider uppercase text-[#9A6D12] dark:text-amber-400">
-              {t('150 Real Vedic Modules · Open-Source & 100% Free-First · 12 Indian Languages', '150 वास्तविक वैदिक मॉड्यूल · ओपन-सोर्स एवं पूर्णतः निःशुल्क · 12 भारतीय भाषाएँ')}
+              {t('350 Real Vedic Modules · Open-Source & 100% Free-First · 12 Indian Languages', '350 वास्तविक वैदिक मॉड्यूल · ओपन-सोर्स एवं पूर्णतः निःशुल्क · 12 भारतीय भाषाएँ')}
             </p>
             <h1 className="font-display text-4xl sm:text-5xl lg:text-[3.35rem] font-bold leading-[1.08] tracking-tight text-[#0D1B3E] dark:text-white text-balance">
               {t('Your Universe. Your Kundli. Your Cosmic Journey.', 'आपका ब्रह्मांड। आपकी कुंडली। आपकी जीवन यात्रा।')}
@@ -173,31 +174,39 @@ export const HomePage: React.FC = () => {
         </div>
       </section>
 
-      {/* 2B. Enterprise 100-Feature Ecosystem Modules (Categories A–G) */}
+      {/* 2B. Enterprise 350-Module Ecosystem (Core + Domains A–Q) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 pt-12">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-5">
           <div>
             <p className="text-xs font-medium uppercase tracking-wider text-[#9A6D12] dark:text-amber-400">
-              {t('Open-Source Vedic Technology Ecosystem (Features 1–100)', 'ओपन-सोर्स वैदिक ज्योतिष पारिस्थितिकी तंत्र')}
+              {t('Open-Source Vedic Technology Ecosystem (350 Audited Modules · Core + A–Q)', 'ओपन-सोर्स वैदिक ज्योतिष पारिस्थितिकी तंत्र (350 मॉड्यूल)')}
             </p>
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-[#0D1B3E] dark:text-white mt-1">
-              {t('Advanced Research, Ephemeris, Muhurat & 3D Workspace', 'उन्नत शोध, ग्रह विज्ञान, मुहूर्त और 3D कार्यक्षेत्र')}
+              {t('Advanced Research, Horary, Varshaphal, India Hubs & 3D Workspace', 'उन्नत शोध, प्रश्न, वर्षफल, भारतीय स्थान एवं 3D कार्यक्षेत्र')}
             </h2>
           </div>
           <Link to="/test-registry" className="text-xs font-semibold text-[#9A6D12] dark:text-amber-400 hover:underline">
-            {t('Inspect 100-Feature Registry & Live Tests →', 'सभी 100 फ़ीचर व टेस्ट देखें →')}
+            {t('Inspect 350-Module Registry & Live QA →', 'सभी 350 मॉड्यूल व लाइव टेस्ट देखें →')}
           </Link>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            ['/research', 'Cat A (1–15)', 'Vedic Research Engine', 'Shadbala, Sarva/Bhinna Ashtakavarga, Bhava Chalit, Sripati, KP Sub-Lord & Jaimini Karakamsha.'],
-            ['/planetary-intelligence', 'Cat B (16–30)', 'Planetary Intelligence', 'Graha Yuddha, Speeds, Stations, Exact Conjunctions, Solar/Lunar Eclipses & Retrograde Shadows.'],
-            ['/life-analysis', 'Cat C (31–45)', 'Life & Personal Analysis', '15-domain scoring across Career, Wealth, Education, Foreign Travel, Leadership & Parent-Child Charts.'],
-            ['/muhurat-calendar', 'Cat D (46–60)', 'Calendar & Muhurat', 'All-India Festivals, Ekadashi, Sankranti, 24h Planetary Hora, Tara/Chandra Bala, Vivah & Naamkaran.'],
-            ['/kundli-matching', 'Cat E (61–70)', 'Relationship & Family Vault', 'Ashtakoot exceptions, D1/D9 overlays, couple transits, offline Family Vault & Child Nakshatra.'],
-            ['/data-tools', 'Cat F (71–85)', 'Data, Sync & Bulk Tools', 'VSOP87 QA Validator, Luxon Historical TZ/DST, Offline IndexedDB Vault, Bulk CSV Batch Exporter.'],
-            ['/workspace', 'Cat G (86–100)', '3D Map, Notes & API v1', 'Three.js 3D Constellation Map, Knowledge Graph, Study Notes, Journal, Certification & Dev API.'],
-            ['/test-registry', 'QA Suite', '100-Feature Registry', 'Interactive catalog of all 100 advanced modules + live automated ephemeris verification.'],
+            ['/research', 'Domain A', 'Vedic Research Engine', 'Shadbala, Sarva/Bhinna Ashtakavarga, Bhava Chalit, Sripati, KP Sub-Lord & Jaimini Karakamsha.'],
+            ['/planetary-intelligence', 'Domain B', 'Planetary Intelligence', 'Graha Yuddha, Speeds, Stations, Exact Conjunctions, Solar/Lunar Eclipses & Retrograde Shadows.'],
+            ['/prashna-varshaphal', 'Horary & Tajika', 'Prashna & Varshaphal', 'Live Prashna Kundli (Karyesha & Ithasala Yoga) plus exact annual Solar Return, Muntha & Mudda Dasha.'],
+            ['/muhurat-calendar', 'Domain D', 'Calendar, Hora & .ICS', 'All-India Festivals, Ekadashi, Sankranti, 24h Planetary Hora, Tara/Chandra Bala & .ICS Export.'],
+            ['/india-locations', 'Domain H', 'India 28 States + 8 UTs', 'Full Bharat Gazetteer, Kashi/Bombay historical alias resolution, Haversine nearest city & IST math.'],
+            ['/academy', 'Domains J & L', 'Jyotish Academy & 12 Languages', 'Interactive Vedic learning curriculum, live quiz grading & 12-Indian-language Devanagari/regional glossary.'],
+            ['/report-studio', 'Domain K', 'Unicode & PDF Studio', 'Generate print-ready Devanagari HTML, sanitized A4 PDFs, JSON archives & crisp Chart PNG downloads.'],
+            ['/verification-center', 'Domain I & QA', 'Verification & 350 Registry', '12 astronomical benchmark tests, Swiss Ephemeris / VSOP87 precision audits & 350-module status tracker.'],
+            ['/vedic-suite', 'New Suite #1–20', 'Jaimini, Yogini & Sudarshan', 'Chara, Yogini, Ashtottari, Kalachakra, Narayana Dasha, 12 Arudha Padas, Sudarshan 3-Ring SVG & KP 249.'],
+            ['/muhurat-explorer', 'New Suite #21–32', 'Griha Pravesh, Calendars & BTR', 'Griha Pravesh, Vehicle & Business Muhurat + .ICS, Agni/Shiv Vaas, 6 Regional Calendars & Birth Time Rectifier.'],
+            ['/numerology-vastu-suite', 'New Suite #33–44', 'Lo Shu, MahaVastu 16 & Mantra', '3×3 Lo Shu Grid, Chaldean Vehicle/Mobile, 16-Direction MahaVastu, Palmistry, Swapna Shastra & 136.1Hz Om.'],
+            ['/sudarshan-comparator', 'New Suite #45–60', '10-Yr Timeline & Comparator', '10-Year Dasha + Gochar forecast, Dual Chart Comparator, QR Share Cards, City Panchang SEO & RSS Feeds.'],
+            ['/horoscope', '84-Panel Portal', 'Horoscope & Chinese 2026/27', '12 Signs × 8 Tabs (Daily to 2027), Personalized DOB Horoscope & Shani/Rahu/Jupiter transit forecasts.'],
+            ['/brihat-kundli', 'Free Dossier', 'Brihat Kundli PDF Studio', 'Complete free printable multi-chapter Brihat Kundli PDF with Dasha, Doshas, Yogas, Life Forecast & Remedies.'],
+            ['/tamil-porutham', 'South Indian', 'Tamil 10-Porutham Matching', 'Dinam, Ganam, Mahendram, Stree Deergham, Yoni, Rasi, Vasya, Rajju & Vedhai astronomical compatibility.'],
+            ['/spiritual-tools', 'Prashnavali & Healing', 'Ramshalaka, Hanuman & Kua', '15×15 Ramshalaka, 49-cell Hanuman Yantra, Chalisa Reader plus Feng Shui Kua, Swarodaya & Ayurveda.'],
           ].map(([href, code, title, desc]) => (
             <Link
               key={href}
@@ -214,6 +223,9 @@ export const HomePage: React.FC = () => {
           ))}
         </div>
       </section>
+
+      <MonetagDirectLinkCta placement="homepage_top" />
+      <AdSlot placement="homepage" />
 
       {/* 3. Instant Free Kundli Generator */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12">

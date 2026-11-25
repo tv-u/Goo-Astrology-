@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import type { KundliResult } from '../engine/ephemeris';
 import {
   LOCALE_STRINGS,
@@ -7,6 +7,7 @@ import {
   type LocaleDictionary,
 } from '../data/locales';
 import { formatLocalizedDate, formatLocalizedNumber } from '../engine/i18nKnowledge';
+import type { AdPlacement } from '../utils/adConfig';
 
 export type Language = IndianLanguageCode;
 export type Theme = 'light' | 'dark';
@@ -17,6 +18,13 @@ export interface AuthUser {
   fullName: string;
   role: 'user' | 'astrologer' | 'admin';
   preferredLanguage: string;
+}
+
+export interface AdPlacementConfig {
+  placement: AdPlacement;
+  enabled: number;
+  network_code: string;
+  ad_slot_id: string;
 }
 
 interface AppContextValue {
@@ -33,6 +41,9 @@ interface AppContextValue {
   setActiveKundli: (k: KundliResult | null) => void;
   geminiConfigured: boolean;
   rtcConfigured: boolean;
+  siteSettings: Record<string, string>;
+  adPlacements: AdPlacementConfig[];
+  refreshPublicSettings: () => Promise<void>;
   t: (en: string, hi: string) => string;
   td: (key: keyof LocaleDictionary) => string;
   formatNumber: (n: number) => string;
@@ -61,6 +72,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [activeKundli, setActiveKundli] = useState<KundliResult | null>(null);
   const [geminiConfigured, setGeminiConfigured] = useState(false);
   const [rtcConfigured, setRtcConfigured] = useState(false);
+  const [siteSettings, setSiteSettings] = useState<Record<string, string>>({});
+  const [adPlacements, setAdPlacements] = useState<AdPlacementConfig[]>([]);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -70,6 +83,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       root.classList.remove('dark');
     }
   }, [theme]);
+
+  const refreshPublicSettings = useCallback(async () => {
+    try {
+      const res = await fetch('/api/settings/public');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.settings && typeof data.settings === 'object') {
+          setSiteSettings(data.settings);
+        }
+        if (Array.isArray(data.ads)) {
+          setAdPlacements(data.ads);
+        }
+      }
+    } catch {
+      // Offline mode keeps existing public settings
+    }
+  }, []);
 
   useEffect(() => {
     fetch('/api/health')
@@ -81,7 +111,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       })
       .catch(() => {});
-  }, []);
+    refreshPublicSettings();
+  }, [refreshPublicSettings]);
 
   const toggleTheme = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
 
@@ -120,6 +151,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setActiveKundli,
         geminiConfigured,
         rtcConfigured,
+        siteSettings,
+        adPlacements,
+        refreshPublicSettings,
         t,
         td,
         formatNumber,

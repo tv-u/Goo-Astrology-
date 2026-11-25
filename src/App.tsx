@@ -49,6 +49,33 @@ const ReportStudioPage = lazy(() =>
 const VerificationCenterPage = lazy(() =>
   import('./pages/EcosystemHubsHtoQ').then((m) => ({ default: m.VerificationCenterPage }))
 );
+const PrashnaVarshaphalPage = lazy(() =>
+  import('./pages/PrashnaVarshaphalPage').then((m) => ({ default: m.PrashnaVarshaphalPage }))
+);
+const AdvancedVedicSuitePage = lazy(() =>
+  import('./pages/AdvancedVedicSuitePage').then((m) => ({ default: m.AdvancedVedicSuitePage }))
+);
+const MuhuratExplorerPage = lazy(() =>
+  import('./pages/MuhuratExplorerPage').then((m) => ({ default: m.MuhuratExplorerPage }))
+);
+const LifestyleAndVastuPage = lazy(() =>
+  import('./pages/LifestyleAndVastuPage').then((m) => ({ default: m.LifestyleAndVastuPage }))
+);
+const SudarshanAndTimelinePage = lazy(() =>
+  import('./pages/GrowthAndComparatorPages').then((m) => ({ default: m.SudarshanAndTimelinePage }))
+);
+const CityPanchangSeoPage = lazy(() =>
+  import('./pages/GrowthAndComparatorPages').then((m) => ({ default: m.CityPanchangSeoPage }))
+);
+const BabyNamesSeoPage = lazy(() =>
+  import('./pages/GrowthAndComparatorPages').then((m) => ({ default: m.BabyNamesSeoPage }))
+);
+const EmbedWidgetPage = lazy(() =>
+  import('./pages/GrowthAndComparatorPages').then((m) => ({ default: m.EmbedWidgetPage }))
+);
+const SpiritualAndHealingPage = lazy(() =>
+  import('./pages/SpiritualAndHealingPage').then((m) => ({ default: m.SpiritualAndHealingPage }))
+);
 
 function PageFallback() {
   return (
@@ -128,6 +155,19 @@ export default function App() {
               <Route path="/academy" element={<VedicAcademyAndGlossaryPage />} />
               <Route path="/report-studio" element={<ReportStudioPage />} />
               <Route path="/verification-center" element={<VerificationCenterPage />} />
+              <Route path="/prashna-varshaphal" element={<PrashnaVarshaphalPage />} />
+              <Route path="/vedic-suite" element={<AdvancedVedicSuitePage />} />
+              <Route path="/muhurat-explorer" element={<MuhuratExplorerPage />} />
+              <Route path="/numerology-vastu-suite" element={<LifestyleAndVastuPage />} />
+              <Route path="/sudarshan-comparator" element={<SudarshanAndTimelinePage />} />
+              <Route path="/spiritual-tools" element={<SpiritualAndHealingPage mode="spiritual" />} />
+              <Route path="/healing-ayurveda" element={<SpiritualAndHealingPage mode="healing" />} />
+              <Route path="/tamil-porutham" element={<SpiritualAndHealingPage mode="porutham" />} />
+              <Route path="/brihat-kundli" element={<SpiritualAndHealingPage mode="brihat" />} />
+              <Route path="/panchang/:citySlug" element={<CityPanchangSeoPage mode="panchang" />} />
+              <Route path="/rahu-kaal/:citySlug" element={<CityPanchangSeoPage mode="rahu" />} />
+              <Route path="/baby-names/:letter" element={<BabyNamesSeoPage />} />
+              <Route path="/embed/:widgetType" element={<EmbedWidgetPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </Suspense>

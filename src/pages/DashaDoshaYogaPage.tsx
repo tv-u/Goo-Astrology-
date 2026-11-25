@@ -5,6 +5,7 @@ import { useApp } from '../context/AppContext';
 import { calculateKundli, type BirthInput } from '../engine/ephemeris';
 import { analyzeDoshasAndYogas } from '../engine/doshaYoga';
 import { analyzeSadeSatiAndGochar, getLivePlanetaryTransits } from '../engine/astrologySystems';
+import { calculateLifetimeSadeSatiTimeline } from '../engine/prashnaAndVarshaphal';
 import { ZODIAC_SIGNS } from '../engine/constants';
 
 export const DashaDoshaYogaPage: React.FC<{
@@ -28,7 +29,12 @@ export const DashaDoshaYogaPage: React.FC<{
 
   const { doshas, yogas } = analyzeDoshasAndYogas(kundli);
   const liveSky = getLivePlanetaryTransits('lahiri');
-  const sadeSati = analyzeSadeSatiAndGochar(activeKundli ? activeKundli.moonSignIndex : moonSignIdx);
+  const activeMoonIdx = activeKundli ? activeKundli.moonSignIndex : moonSignIdx;
+  const sadeSati = analyzeSadeSatiAndGochar(activeMoonIdx);
+  const birthYear = Number((kundli.input.date || '1995-08-15').slice(0, 4)) || 1995;
+  const lifetimeSaturnTimeline = section === 'sadesati'
+    ? calculateLifetimeSadeSatiTimeline(birthYear, activeMoonIdx, 90)
+    : [];
 
   const handleRecalc = (input: BirthInput) => {
     const k = calculateKundli(input);
@@ -155,6 +161,41 @@ export const DashaDoshaYogaPage: React.FC<{
             </div>
             <p className="text-sm text-slate-700 dark:text-slate-300">{sadeSati.jupiterTransitNote}</p>
           </div>
+
+          {section === 'sadesati' && lifetimeSaturnTimeline.length > 0 && (
+            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0C1226] p-6 space-y-4 overflow-x-auto">
+              <div>
+                <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white">
+                  {t('90-Year Lifetime Sade Sati & Dhaiya Timeline', '90-वर्षीय आजीवन शनि साढ़ेसाती व ढैय्या सारणी')}
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Calculated via NASA/JPL ephemeris scanning Saturn&apos;s exact Lahiri Sidereal sign transits relative to {ZODIAC_SIGNS[activeMoonIdx].name} Moon ({birthYear}–{birthYear + 90}).
+                </p>
+              </div>
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 dark:border-slate-800 text-left text-slate-500">
+                    <th className="py-2 pr-3">Phase / Cycle</th>
+                    <th className="py-2 pr-3">Saturn Rashi</th>
+                    <th className="py-2 pr-3">Start Date</th>
+                    <th className="py-2 pr-3">End Date</th>
+                    <th className="py-2 text-right">Duration</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/70">
+                  {lifetimeSaturnTimeline.map((win, idx) => (
+                    <tr key={idx}>
+                      <td className="py-2 pr-3 font-semibold">{win.type}</td>
+                      <td className="py-2 pr-3">{win.saturnSign}</td>
+                      <td className="py-2 pr-3 font-mono">{win.startDate}</td>
+                      <td className="py-2 pr-3 font-mono">{win.endDate}</td>
+                      <td className="py-2 text-right font-mono">{Math.round(win.durationDays / 30)} mo</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0C1226] p-6 overflow-x-auto">
             <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white mb-4">

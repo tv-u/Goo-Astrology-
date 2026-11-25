@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { INITIAL_ARTICLES, type ArticleRecord } from '../data/articles';
 import { ZODIAC_SIGNS } from '../engine/constants';
 import { SeoHead } from '../components/SeoHead';
+import { AdSlot } from '../components/AdSlot';
 import { useApp } from '../context/AppContext';
 
 export const BlogPage: React.FC = () => {
@@ -107,6 +108,7 @@ export const ArticleDetailPage: React.FC = () => {
           <p key={idx}>{para}</p>
         ))}
       </div>
+      <AdSlot placement="article" className="px-0" />
     </article>
   );
 };

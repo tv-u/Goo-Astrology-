@@ -206,3 +206,90 @@ export function exportSvgElementToPng(svgElement: SVGSVGElement, filename: strin
   };
   img.src = url;
 }
+
+export function buildBrihatKundliReportSpec(
+  kundli: {
+    input: { name: string; date: string; time: string; placeName?: string };
+    ayanamshaMode: string;
+    ayanamshaDms: string;
+    ascendant: { signName: string; dms: string; nakshatraName: string; pada: number };
+    planets: Array<{
+      id: string;
+      signName: string;
+      dms: string;
+      house: number;
+      nakshatraName: string;
+      pada: number;
+      dignity: string;
+      isRetrograde: boolean;
+    }>;
+    dashas: Array<{ lord: string; durationYears?: number; years?: number; startDate: string; endDate: string }>;
+    currentMahadasha?: { lord: string; startDate: string; endDate: string } | null;
+    currentAntardasha?: { lord: string; startDate: string; endDate: string } | null;
+  },
+  extra?: {
+    manglikSummary?: string;
+    sadeSatiSummary?: string;
+    yogasSummary?: string[];
+    lifeSummary?: string[];
+    remediesSummary?: string[];
+    targetYear?: number;
+  }
+): ReportSpec {
+  const moon = kundli.planets[1];
+  const targetYear = extra?.targetYear || 2026;
+  return {
+    title: `Brihat Janam Kundli Comprehensive Dossier — ${kundli.input.name}`,
+    subtitle: `Lahiri Sidereal (${kundli.ayanamshaMode.toUpperCase()} ${kundli.ayanamshaDms}) · Free Lifetime Edition`,
+    filename: `brihat-kundli-${(kundli.input.name || 'native').toLowerCase().replace(/[^a-z0-9]+/g, '-')}.pdf`,
+    metadataLines: [
+      `Subject: ${kundli.input.name} | DOB: ${kundli.input.date} | Time: ${kundli.input.time}`,
+      `Birthplace: ${kundli.input.placeName || 'New Delhi, India'}`,
+      `Ascendant (Lagna): ${kundli.ascendant.signName} ${kundli.ascendant.dms} (${kundli.ascendant.nakshatraName} Pada ${kundli.ascendant.pada})`,
+      `Moon Rashi & Nakshatra: ${moon.signName} (${moon.nakshatraName} Pada ${moon.pada})`,
+      `Current Mahadasha/Antardasha: ${kundli.currentMahadasha?.lord || '-'} / ${kundli.currentAntardasha?.lord || '-'}`,
+    ],
+    sections: [
+      {
+        heading: '1. Sidereal Planetary Positions (Graha Sthiti)',
+        rows: kundli.planets.map(
+          (p) =>
+            `${p.id}: ${p.signName} ${p.dms} | House ${p.house} | ${p.nakshatraName} P${p.pada} | ${p.dignity}${p.isRetrograde ? ' (Retrograde)' : ''}`
+        ),
+      },
+      {
+        heading: '2. 120-Year Vimshottari Mahadasha Timeline',
+        rows: kundli.dashas.map((d) => `${d.lord} Mahadasha (${d.durationYears ?? d.years ?? ''} yrs): ${d.startDate} to ${d.endDate}`),
+      },
+      {
+        heading: '3. Dosha & Sade Sati Evaluation',
+        rows: [
+          extra?.manglikSummary || 'Manglik check evaluated from 1st, 2nd, 4th, 7th, 8th, and 12th houses.',
+          extra?.sadeSatiSummary || 'Saturn transit phase evaluated relative to natal Moon Rashi.',
+        ],
+      },
+      {
+        heading: '4. Classical Vedic Yogas & Life Strengths',
+        rows:
+          extra?.yogasSummary && extra.yogasSummary.length > 0
+            ? extra.yogasSummary
+            : ['Raj Yoga, Pancha Mahapurusha & Budhaditya combinations verified against D1 Lagna.'],
+      },
+      {
+        heading: `5. ${targetYear} Annual Forecast & Balanced Life Areas`,
+        rows:
+          extra?.lifeSummary && extra.lifeSummary.length > 0
+            ? extra.lifeSummary
+            : ['Career, Wealth, Marriage & Health evaluated via planetary strength and active Dasha lords.'],
+      },
+      {
+        heading: '6. Classical Vedic Remedies, Gemstones & Mantra Guidance',
+        rows:
+          extra?.remediesSummary && extra.remediesSummary.length > 0
+            ? extra.remediesSummary
+            : ['Chant Gayatri Mantra at sunrise, align diet with Ayurvedic Prakriti, and verify functional benefic status before gemstones.'],
+      },
+    ],
+  };
+}
+

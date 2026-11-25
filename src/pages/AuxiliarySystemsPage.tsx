@@ -331,6 +331,11 @@ export const FinderToolPage: React.FC<{ finderType: 'nakshatra' | 'rashi' | 'lag
 
 export const ToolsDirectoryPage: React.FC = () => {
   const tools = [
+    ['/horoscope', '84-Panel Horoscope & Chinese 2026/2027', '12 Signs x 8 Tabs, Personalized DOB Horoscope & Shani/Rahu/Guru transits'],
+    ['/brihat-kundli', 'Free Brihat Kundli Comprehensive PDF', 'Multi-chapter Janam Kundli PDF with Dasha, Dosha, Yogas, Life & Remedies'],
+    ['/tamil-porutham', 'Tamil 10-Porutham Star Matching', 'Dinam, Ganam, Mahendram, Stree Deergham, Yoni, Rasi, Vasya, Rajju & Vedhai'],
+    ['/spiritual-tools', 'Ramshalaka, Hanuman 49 & Sacred Mantras', '15x15 Ramshalaka Prashnavali, 49-cell Hanuman Yantra, Chalisa & 432Hz Bell'],
+    ['/healing-ayurveda', 'Ayurveda Prakriti, Feng Shui Kua & Swarodaya', 'Vata/Pitta/Kapha dosha, Kua Bagua directions, Chakra, Crystal & Swarodaya breath'],
     ['/free-kundli', 'Free Janam Kundli', 'D1–D60 charts, planetary degrees, aspects & Dasha'],
     ['/research', 'Advanced Vedic Research (A-01..15)', 'Shadbala, Ashtakavarga, Bhava Chalit, Sripati, KP & Jaimini'],
     ['/planetary-intelligence', 'Planetary Intelligence (B-16..30)', 'Graha Yuddha, Stations, Eclipses, Conjunctions & Shadows'],
@@ -339,9 +344,21 @@ export const ToolsDirectoryPage: React.FC = () => {
     ['/kundli-matching', 'Kundli Matching & Family (E-61..70)', '36-pt Gun Milan, Cancellations, Overlays, Family Vault & PDF'],
     ['/data-tools', 'Data, Sync & Batch Tools (F-71..85)', 'Ephemeris QA, Historical TZ, Offline Storage & CSV Batch'],
     ['/workspace', '3D Map, Notes & Dev API (G-86..100)', 'Three.js Constellation Map, Knowledge Graph, Journal & SDK'],
-    ['/test-registry', '100-Feature Registry & QA', 'Browse all 100 modules and inspect functional verification'],
+    ['/prashna-varshaphal', 'Prashna & Varshaphal (Tajika)', 'Live Horary Prashna Lagna, Karyesha & exact Solar Return + Mudda Dasha'],
+    ['/vedic-suite', 'Jaimini, Yogini & Sudarshan (#1–20)', 'Chara, Yogini, Ashtottari, Kalachakra, Arudha Padas, Sudarshan 3-Ring & KP 249'],
+    ['/muhurat-explorer', 'Muhurat Explorer & BTR (#21–32)', 'Griha Pravesh, Property, Agni/Shiv Vaas, 6 Regional Calendars, Eclipses & BTR'],
+    ['/numerology-vastu-suite', 'Lo Shu, MahaVastu 16 & Mantra (#33–44)', '3×3 Lo Shu Grid, Chaldean Vehicle/Mobile, 16-Direction MahaVastu, Palmistry & Om'],
+    ['/sudarshan-comparator', '10-Yr Timeline & Dual Comparator (#51–52)', '10-Year Dasha + Gochar forecast & Side-by-Side Kundli vs Transit/Varshaphal'],
+    ['/panchang/varanasi', 'City Panchang SEO (/panchang/:city)', 'City-specific Tithi, Nakshatra & Abhijit Muhurat pages across Bharat'],
+    ['/rahu-kaal/mumbai', 'City Rahu Kaal SEO (/rahu-kaal/:city)', 'City-specific Rahu Kaal & Sunrise/Sunset timing pages'],
+    ['/embed/panchang', 'Embeddable Panchang Widget (#55)', 'Free copyable HTML iframe widget for blogs and spiritual websites'],
+    ['/india-locations', 'India Locations (H-101..120)', '28 States + 8 UTs Gazetteer, Kashi/Bombay aliases & Haversine city finder'],
+    ['/academy', 'Vedic Academy & 12 Languages (J, L)', 'Jyotish curriculum quiz & 12-Indian-language glossary'],
+    ['/report-studio', 'Report Studio (Domain K)', 'Unicode Devanagari print HTML, PDF export, JSON & Chart PNGs'],
+    ['/verification-center', 'Verification Center (Domain I)', '12 astronomical benchmark tests & reference ephemeris audits'],
+    ['/test-registry', '350-Module Registry & QA', 'Browse all 350 modules (Core + A–Q) and inspect live functional verification'],
     ['/manglik-calculator', 'Manglik Calculator', 'Kuja Dosha check with classical cancellation rules'],
-    ['/sade-sati', 'Sade Sati Calculator', 'Live Saturn transit phases & Dhaiya checker'],
+    ['/sade-sati', 'Sade Sati & 90-Yr Timeline', 'Live Saturn transit phases, Dhaiya & 90-year ephemeris timeline'],
     ['/nakshatra-finder', 'Nakshatra Calculator', 'Exact Moon Nakshatra, Pada & naming syllable'],
     ['/rashi-finder', 'Rashi Calculator', 'Vedic Moon Sign (Chandra Rashi) calculator'],
     ['/lagna-finder', 'Lagna Calculator', 'Rising Ascendant sign & degree calculator'],
@@ -368,11 +385,11 @@ export const ToolsDirectoryPage: React.FC = () => {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
       <SeoHead
         title="All Free Vedic Astrology Calculators, Research Engines & Tools"
-        description="Complete directory of 150 free Vedic astrology calculators & modules: Kundli, Shadbala, Ashtakavarga, Eclipses, Matching, Panchang, 3D Sky Map, Tarot, and Batch CSV."
+        description="Complete directory of 410 free Vedic astrology calculators & modules: Kundli, Jaimini, Sudarshan Chakra, Shadbala, Ashtakavarga, Eclipses, Matching, Panchang, MahaVastu & Lo Shu."
       />
       <div>
         <h1 className="font-display text-3xl sm:text-4xl font-bold text-[#0D1B3E] dark:text-white">
-          Free Astrology Ecosystem Directory ({tools.length} Suites · 150 Features)
+          Free Astrology Ecosystem Directory ({tools.length} Suites · 350 Core + 60 Advanced)
         </h1>
         <p className="text-sm text-[#4A5568] dark:text-slate-400 mt-1">
           Every calculator runs offline or locally using validated VSOP87 astronomical math and open datasets.

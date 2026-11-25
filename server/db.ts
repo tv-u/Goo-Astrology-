@@ -16,7 +16,8 @@ if (!fs.existsSync(dbDir)) {
 }
 
 export const db = new Database(dbPath);
-db.pragma('journal_mode = WAL');
+db.pragma('journal_mode = DELETE');
+db.pragma('busy_timeout = 5000');
 db.pragma('foreign_keys = ON');
 
 export function initializeDatabase() {
@@ -27,6 +28,16 @@ export function initializeDatabase() {
   const ecosystemPath = path.resolve(process.cwd(), 'migrations', '0002_ecosystem.sql');
   if (fs.existsSync(ecosystemPath)) {
     db.exec(fs.readFileSync(ecosystemPath, 'utf-8'));
+  }
+
+  const adv60Path = path.resolve(process.cwd(), 'migrations', '0003_advanced_60.sql');
+  if (fs.existsSync(adv60Path)) {
+    db.exec(fs.readFileSync(adv60Path, 'utf-8'));
+  }
+
+  const portalPath = path.resolve(process.cwd(), 'migrations', '0004_portal_features.sql');
+  if (fs.existsSync(portalPath)) {
+    db.exec(fs.readFileSync(portalPath, 'utf-8'));
   }
 
   // Seed default roles
@@ -95,6 +106,11 @@ export function initializeDatabase() {
     ['rtc_provider_configured', 'false'],
     ['google_search_console_meta', ''],
     ['indexnow_key', ''],
+    ['monetag_verification_meta', ''],
+    ['monetag_multitag_zone_id', ''],
+    ['monetag_direct_link_url', 'https://uplcm.com/4/12282219'],
+    ['monetag_direct_link_enabled', 'true'],
+    ['ads_txt_content', ''],
     ['auto_sync_interval_hours', '24'],
   ];
   for (const [k, v] of defaultSettings) {
